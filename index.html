@@ -1395,6 +1395,57 @@
         return { s7: sum(modalStart7, modalLatest), p7: sum(modalPrev7Start, modalPrev7End), s30: sum(modalStart30, modalLatest), p30: sum(modalPrev30Start, modalPrev30End) };
       };
 
+      // 计算销售周期时间进度与经过天数
+      const timePct = (getTimeProgress() * 100).toFixed(1);
+      const daysPassed = Math.max(0, Math.min(TOTAL_CYCLE_DAYS, Math.floor((state.simulatedDate.getTime() - CYCLE_START.getTime()) / 86400000) + 1));
+
+      // 提取符合条件的渠道行
+      const channelRows = CHANNELS.map(ch => {
+        const x = aggregated.channels[ch];
+        if (!x) return null;
+        const stats = modalChannelStats(ch);
+        if (!((x.hasTarget && x.target > 0) || x.sales > 0 || stats.s7 > 0 || stats.s30 > 0)) return null;
+        return {
+          ch,
+          x,
+          stats,
+          pct: x.hasTarget && x.target > 0 ? (x.sales / x.target * 100) : null
+        };
+      }).filter(Boolean);
+
+      // 渠道明细排序
+      channelRows.sort((a, b) => {
+        let av, bv;
+        const k = detailChannelSort.key;
+        if (k === 'channel') { av = a.ch; bv = b.ch; }
+        else if (k === 'sales') { av = a.x.sales; bv = b.x.sales; }
+        else if (k === 'target') { av = a.x.target; bv = b.x.target; }
+        else if (k === 'pct') { av = a.pct ?? -Infinity; bv = b.pct ?? -Infinity; }
+        else if (k === 's7') { av = a.stats.s7; bv = b.stats.s7; }
+        else if (k === 'r7') {
+          av = a.stats.p7 > 0 ? (a.stats.s7 - a.stats.p7) / a.stats.p7 : (a.stats.s7 > 0 ? Infinity : -Infinity);
+          bv = b.stats.p7 > 0 ? (b.stats.s7 - b.stats.p7) / b.stats.p7 : (b.stats.s7 > 0 ? Infinity : -Infinity);
+        } else if (k === 's30') { av = a.stats.s30; bv = b.stats.s30; }
+        else {
+          av = a.stats.p30 > 0 ? (a.stats.s30 - a.stats.p30) / a.stats.p30 : (a.stats.s30 > 0 ? Infinity : -Infinity);
+          bv = b.stats.p30 > 0 ? (b.stats.s30 - b.stats.p30) / b.stats.p30 : (b.stats.s30 > 0 ? Infinity : -Infinity);
+        }
+        const cmp = typeof av === 'string' ? av.localeCompare(bv, 'zh-CN') : (av - bv);
+        return (detailChannelSort.asc ? 1 : -1) * cmp;
+      });
+
+      // 计算明细汇总行数据
+      let sumTotSales = 0, sumTotTarget = 0, sumTotS7 = 0, sumTotP7 = 0, sumTotS30 = 0, sumTotP30 = 0;
+      channelRows.forEach(r => {
+        sumTotSales += Number(r.x.sales || 0);
+        if (r.x.hasTarget && r.x.target > 0) sumTotTarget += Number(r.x.target || 0);
+        sumTotS7 += Number(r.stats.s7 || 0);
+        sumTotP7 += Number(r.stats.p7 || 0);
+        sumTotS30 += Number(r.stats.s30 || 0);
+        sumTotP30 += Number(r.stats.p30 || 0);
+      });
+      const totAchievePct = sumTotTarget > 0 ? (sumTotSales / sumTotTarget * 100) : null;
+
       const content = `
         <!-- 弹窗顶端：左侧基本信息 + 右上角最顶端在仓库存、在途库存、待清总库存、累计销量 KPI 排版 -->
         <div class="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 pr-10 gap-3.5">
@@ -1444,31 +1495,69 @@
         </div>
 
         <div class="mt-4">
-          <h4 class="text-xs font-bold text-slate-800 mb-2">渠道认领目标与近期动销明细</h4>
+          <!-- 模块标题与时间进度条组件 -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
+            <div class="flex items-center space-x-2">
+              <h4 class="text-xs font-bold text-slate-800">渠道认领目标与近期动销明细</h4>
+              <span class="text-[10px] text-slate-400">（点击表头列名可排序）</span>
+            </div>
+
+            <!-- 时间进度条 -->
+            <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-2xs">
+              <div class="flex items-center space-x-1.5 text-slate-700 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                <span class="text-[11px]">销售周期时间进度:</span>
+              </div>
+              <div class="w-28 sm:w-36 bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: ${timePct}%"></div>
+              </div>
+              <span class="text-xs font-black text-indigo-600 font-mono">${timePct}%</span>
+              <span class="text-[10px] text-slate-400">(${daysPassed}/154天)</span>
+            </div>
+          </div>
+
+          <!-- 居中对齐表格与汇总行 -->
           <div class="rounded-xl border border-slate-200 overflow-x-hidden">
-            <table class="w-full table-fixed text-[11px] text-right border-collapse leading-tight">
+            <table class="w-full table-fixed text-[11px] text-center border-collapse leading-tight">
               <colgroup><col style="width:17%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:11%"><col style="width:12%"><col style="width:12%"></colgroup>
               <thead class="bg-slate-50 text-slate-600"><tr>
-                <th class="px-1.5 py-2 text-left"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('channel')">渠道归类 ${detailChannelSort.key==='channel'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('sales')">累计销量 ${detailChannelSort.key==='sales'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('target')">销量目标 ${detailChannelSort.key==='target'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('pct')">达成率 ${detailChannelSort.key==='pct'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('s7')">近7天销量 ${detailChannelSort.key==='s7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('r7')">7天环比 ${detailChannelSort.key==='r7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('s30')">近30天销量 ${detailChannelSort.key==='s30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2"><button class="font-semibold whitespace-nowrap" onclick="sortSkuChannelRows('r30')">30天环比 ${detailChannelSort.key==='r30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('channel')">渠道归类 ${detailChannelSort.key==='channel'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('sales')">累计销量 ${detailChannelSort.key==='sales'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('target')">销量目标 ${detailChannelSort.key==='target'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('pct')">达成率 ${detailChannelSort.key==='pct'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s7')">近7天销量 ${detailChannelSort.key==='s7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r7')">7天环比 ${detailChannelSort.key==='r7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s30')">近30天销量 ${detailChannelSort.key==='s30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r30')">30天环比 ${detailChannelSort.key==='r30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
               </tr></thead>
               <tbody>
-                ${CHANNELS.map(ch => { const x=aggregated.channels[ch]; if(!x) return null; const stats=modalChannelStats(ch); if(!((x.hasTarget&&x.target>0)||x.sales>0||stats.s7>0||stats.s30>0)) return null; return {ch, x, stats, pct:x.hasTarget&&x.target>0?(x.sales/x.target*100):null}; })
-                  .filter(Boolean).sort((a,b)=>{let av,bv; const k=detailChannelSort.key; if(k==='channel'){av=a.ch;bv=b.ch;} else if(k==='sales'){av=a.x.sales;bv=b.x.sales;} else if(k==='target'){av=a.x.target;bv=b.x.target;} else if(k==='pct'){av=a.pct??-Infinity;bv=b.pct??-Infinity;} else if(k==='s7'){av=a.stats.s7;bv=b.stats.s7;} else if(k==='r7'){av=a.stats.p7>0?(a.stats.s7-a.stats.p7)/a.stats.p7:(a.stats.s7>0?Infinity:-Infinity);bv=b.stats.p7>0?(b.stats.s7-b.stats.p7)/b.stats.p7:(b.stats.s7>0?Infinity:-Infinity);} else if(k==='s30'){av=a.stats.s30;bv=b.stats.s30;} else {av=a.stats.p30>0?(a.stats.s30-a.stats.p30)/a.stats.p30:(a.stats.s30>0?Infinity:-Infinity);bv=b.stats.p30>0?(b.stats.s30-b.stats.p30)/b.stats.p30:(b.stats.s30>0?Infinity:-Infinity);} const cmp=typeof av==='string'?av.localeCompare(bv,'zh-CN'):(av-bv); return (detailChannelSort.asc?1:-1)*cmp;})
-                  .map(({ch,x:chInfo,stats,pct})=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
-                    <td class="px-1.5 py-2 text-left font-semibold text-slate-700 truncate" title="${ch}">${ch}</td><td class="px-1 py-2 whitespace-nowrap">${modalFmt(chInfo.sales)}</td><td class="px-1 py-2 whitespace-nowrap">${chInfo.hasTarget?modalFmt(chInfo.target):'—'}</td><td class="px-1 py-2 whitespace-nowrap">${pct===null?'—':pct.toFixed(1)+'%'}</td>
-                    <td class="px-1 py-2 font-semibold text-blue-700 whitespace-nowrap">${modalFmt(stats.s7)}</td><td class="px-1 py-2 whitespace-nowrap ${modalRatioClass(stats.s7,stats.p7)}">${modalRatioText(stats.s7,stats.p7)}</td><td class="px-1 py-2 font-semibold text-blue-700 whitespace-nowrap">${modalFmt(stats.s30)}</td><td class="px-1 py-2 whitespace-nowrap ${modalRatioClass(stats.s30,stats.p30)}">${modalRatioText(stats.s30,stats.p30)}</td>
+                ${channelRows.map(({ch,x:chInfo,stats,pct})=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
+                    <td class="px-1.5 py-2 text-center font-semibold text-slate-700 truncate" title="${ch}">${ch}</td>
+                    <td class="px-1 py-2 text-center whitespace-nowrap">${modalFmt(chInfo.sales)}</td>
+                    <td class="px-1 py-2 text-center whitespace-nowrap">${chInfo.hasTarget?modalFmt(chInfo.target):'—'}</td>
+                    <td class="px-1 py-2 text-center whitespace-nowrap">${pct===null?'—':pct.toFixed(1)+'%'}</td>
+                    <td class="px-1 py-2 text-center font-semibold text-blue-700 whitespace-nowrap">${modalFmt(stats.s7)}</td>
+                    <td class="px-1 py-2 text-center whitespace-nowrap ${modalRatioClass(stats.s7,stats.p7)}">${modalRatioText(stats.s7,stats.p7)}</td>
+                    <td class="px-1 py-2 text-center font-semibold text-blue-700 whitespace-nowrap">${modalFmt(stats.s30)}</td>
+                    <td class="px-1 py-2 text-center whitespace-nowrap ${modalRatioClass(stats.s30,stats.p30)}">${modalRatioText(stats.s30,stats.p30)}</td>
                   </tr>`).join('') || `<tr><td colspan="8" class="p-4 text-center text-slate-400">当前筛选条件下暂无渠道目标或动销数据</td></tr>`}
               </tbody>
+              <!-- 汇总合计行 -->
+              <tfoot class="bg-slate-100/80 font-bold border-t-2 border-slate-300 text-slate-900">
+                <tr>
+                  <td class="px-1.5 py-2.5 text-center font-extrabold text-slate-900">汇总合计</td>
+                  <td class="px-1 py-2.5 text-center font-black text-blue-800 whitespace-nowrap">${modalFmt(sumTotSales)}</td>
+                  <td class="px-1 py-2.5 text-center font-extrabold text-slate-700 whitespace-nowrap">${sumTotTarget > 0 ? modalFmt(sumTotTarget) : '—'}</td>
+                  <td class="px-1 py-2.5 text-center font-black whitespace-nowrap text-indigo-700">${totAchievePct !== null ? totAchievePct.toFixed(1) + '%' : '—'}</td>
+                  <td class="px-1 py-2.5 text-center font-black text-blue-700 whitespace-nowrap">${modalFmt(sumTotS7)}</td>
+                  <td class="px-1 py-2.5 text-center whitespace-nowrap ${modalRatioClass(sumTotS7, sumTotP7)}">${modalRatioText(sumTotS7, sumTotP7)}</td>
+                  <td class="px-1 py-2.5 text-center font-black text-blue-700 whitespace-nowrap">${modalFmt(sumTotS30)}</td>
+                  <td class="px-1 py-2.5 text-center whitespace-nowrap ${modalRatioClass(sumTotS30, sumTotP30)}">${modalRatioText(sumTotS30, sumTotP30)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
-          <p class="text-[10px] text-slate-400 mt-1">统计截止：${modalLatest}。环比下滑为红色，环比增长为蓝色；前一周期为零时显示“新增”或“—”。</p>
+          <p class="text-[10px] text-slate-400 mt-1.5">统计截止：${modalLatest}。当前销售周期时间进度为 <strong class="text-indigo-600 font-bold">${timePct}%</strong>；环比下滑为红色，环比增长为蓝色；前一周期为零时显示“新增”或“—”。</p>
         </div>
         <div class="mt-5 border border-slate-200 rounded-2xl p-4"><h4 class="text-xs font-bold text-slate-800 mb-2">该款式 22 周周销趋势</h4><div class="h-56"><canvas id="skuWeeklyTrendChart"></canvas></div></div>
       `;

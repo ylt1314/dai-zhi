@@ -103,12 +103,11 @@
     </div>
   </div>
 
-
   <!-- 顶部导航条 -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap justify-between items-center gap-4">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-linear-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
@@ -150,10 +149,10 @@
   <!-- 主容器 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 w-full grow space-y-4">
 
-    <!-- 精简紧凑型顶部 KPI 综合栏 -->
+    <!-- 顶部 KPI 综合栏 -->
     <div class="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-center">
-        <!-- 销售周期监控与进度（紧凑型，占 4 列） -->
+        <!-- 销售周期监控与进度（占 4 列） -->
         <div class="lg:col-span-4 pr-0 lg:pr-3 lg:border-r border-slate-100 flex flex-col justify-between space-y-1.5">
           <div class="flex items-center justify-between text-xs">
             <div class="flex items-center space-x-1.5 font-bold text-slate-800">
@@ -220,7 +219,7 @@
     <!-- 筛选器与控制工具条 -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs space-y-3.5">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <!-- 渠道归类项目组：复选框多选，联动主表与低售罄率大图看板 -->
+        <!-- 渠道归类项目组 -->
         <div class="flex items-start gap-2 min-w-[280px] flex-1">
           <span class="text-xs font-semibold text-slate-700 shrink-0 pt-2">渠道归类项目组:</span>
           <div class="border border-slate-200 rounded-xl bg-slate-50 p-2 flex-1">
@@ -264,7 +263,7 @@
         </div>
       </div>
 
-      <!-- 第二层：搜索与属性筛选（单/绒字段明确为：单里、绒里） -->
+      <!-- 搜索与属性筛选 -->
       <div class="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100 text-xs">
         <div class="relative w-56">
           <input type="text" id="skuSearchInput" placeholder="输入货号快速搜索..." oninput="renderAll()"
@@ -297,7 +296,7 @@
       </div>
     </div>
 
-    <!-- 三大独立业务看板切换导航（独立模块胶囊切换） -->
+    <!-- 业务看板切换导航 -->
     <div class="bg-slate-200/70 p-1 rounded-2xl flex flex-wrap gap-1 text-xs font-semibold">
       <button onclick="switchTab('tableTab')" id="tabBtnTable" class="px-4 py-2 rounded-xl bg-white text-indigo-700 shadow-xs flex items-center space-x-2 transition-all">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -321,27 +320,26 @@
       </button>
     
       <button onclick="switchTab('storeMatrixTab')" id="tabBtnStoreMatrix" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 flex items-center space-x-2 transition-all"><span>▦</span><span>店铺周销量矩阵与认领目标达成</span></button>
-</div>
+    </div>
 
-    <!-- TAB 1: 截图同款报表表格 (货号+图片列固定冻结 + 白底纹 + 大图片 + 纯净大图预览) -->
+    <!-- TAB 1: 截图同款报表表格 -->
     <section id="tableTab" class="block space-y-3">
       <div class="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
         <div class="overflow-x-auto max-h-[660px] relative">
           <table class="w-full text-center border-collapse text-xs whitespace-nowrap" id="mainFollowTable">
             <thead class="select-none font-bold">
-              <!-- 第1行表头：纯白底纹固定 + 货号和图片首两列独立吸附 + 渠道列合并 -->
+              <!-- 第1行表头 -->
               <tr class="table-sticky-row1 border-b border-slate-300 text-slate-800">
                 <th class="th-sticky-corner-sku-1 py-2 px-3 border-r border-slate-200"></th>
                 <th class="th-sticky-corner-img-1 py-2 px-3 border-r border-slate-300"></th>
                 <th colspan="7" class="py-2.5 px-3 border-r border-slate-300 text-center font-bold text-slate-700 bg-white">
                   单品基础及总销存数据
                 </th>
-                <!-- 渠道合并单元格：严格匹配后续所有渠道的列宽 -->
                 <th id="channelGroupHeader" colspan="13" class="py-2.5 px-3 border-r border-slate-300 text-center font-extrabold text-indigo-950 bg-indigo-50/50">
                   不同渠道的销量及销量目标
                 </th>
               </tr>
-              <!-- 第2行表头：纯白底纹固定 + 货号与图片左侧横向冻结 -->
+              <!-- 第2行表头 -->
               <tr class="table-sticky-row2 border-b border-slate-300 text-slate-700 bg-white shadow-xs">
                 <th class="th-sticky-corner-sku-2 py-2.5 px-3 border-r border-slate-200">货号</th>
                 <th class="th-sticky-corner-img-2 py-2.5 px-4 border-r border-slate-300">图片</th>
@@ -352,7 +350,6 @@
                 <th class="py-2.5 px-3 border-r border-slate-200 cursor-pointer hover:bg-slate-50 bg-white" onclick="sortBy('transitStock')">在途库存 ⇅</th>
                 <th class="py-2.5 px-3 border-r border-slate-200 cursor-pointer hover:bg-slate-50 font-extrabold text-slate-900 bg-white" onclick="sortBy('totalStock')">总库存 ⇅</th>
                 <th class="py-2.5 px-3 border-r border-slate-300 cursor-pointer hover:bg-slate-50 text-emerald-800 font-extrabold bg-white" onclick="sortBy('sellThrough')">售罄率 ⇅</th>
-                <!-- 渠道列（严格按截图与系统定义动态装配） -->
                 <th class="py-2.5 px-3 border-r border-slate-200 bg-white font-semibold">拼多多</th>
                 <th class="py-2.5 px-3 border-r border-slate-200 bg-white font-semibold">唯品会</th>
                 <th class="py-2.5 px-3 border-r border-slate-200 bg-white font-semibold">抖音</th>
@@ -368,12 +365,8 @@
                 <th class="py-2.5 px-3 bg-white font-extrabold text-indigo-900 border-r border-slate-300">总计</th>
               </tr>
             </thead>
-            <tbody id="tableBody" class="divide-y divide-slate-200 text-slate-700 font-medium">
-              <!-- JS 动态渲染数据行 -->
-            </tbody>
-            <tfoot id="tableFoot" class="bg-slate-50 font-bold border-t-2 border-slate-300 text-slate-900">
-              <!-- 合计汇总行 -->
-            </tfoot>
+            <tbody id="tableBody" class="divide-y divide-slate-200 text-slate-700 font-medium"></tbody>
+            <tfoot id="tableFoot" class="bg-slate-50 font-bold border-t-2 border-slate-300 text-slate-900"></tfoot>
           </table>
         </div>
       </div>
@@ -385,7 +378,6 @@
 
     <!-- TAB 2: 按「总库存」拆解每周销售目标与节奏 -->
     <section id="weeklyTab" class="hidden space-y-5">
-      <!-- 提示横幅 -->
       <div class="bg-indigo-50 border border-indigo-200/80 rounded-2xl p-4 flex items-center justify-between text-xs text-indigo-900">
         <div class="flex items-center space-x-2.5">
           <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">🎯</span>
@@ -403,7 +395,6 @@
         </div>
       </div>
 
-      <!-- 进度对比卡片 -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
           <div class="text-xs text-slate-500 font-semibold mb-1">销售周期天数进度</div>
@@ -430,7 +421,6 @@
         </div>
       </div>
 
-      <!-- 周度图表 -->
       <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
           <span>每周销售情况 vs 按总库存拆解周目标 vs 累计去库达成走势（截止导入销售最新日期）</span>
@@ -441,7 +431,6 @@
         </div>
       </div>
 
-      <!-- 周度明细表格 -->
       <div class="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
         <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">周度库存消化目标与销量追踪明细（按最新销售日期动态展开）</h4>
@@ -459,20 +448,18 @@
                 <th class="py-2.5 px-3">单周去库完成率</th>
                 <th class="py-2.5 px-3 text-slate-700">单周去库差额 (实际-目标)</th>
                 <th class="py-2.5 px-3">累计应去目标</th>
-                <th class="py-2.5 px-3">累计实际销量</th>
+                <th class="py-2.5 px-3 text-slate-800 font-bold">累计实际销量</th>
                 <th class="py-2.5 px-3 font-extrabold text-emerald-700">累计去库存达成率</th>
                 <th class="py-2.5 px-3 text-slate-500">预测期末剩余库存</th>
               </tr>
             </thead>
-            <tbody id="weeklyTableBody" class="divide-y divide-slate-200 font-medium">
-              <!-- JS 渲染 22 周明细 -->
-            </tbody>
+            <tbody id="weeklyTableBody" class="divide-y divide-slate-200 font-medium"></tbody>
           </table>
         </div>
       </div>
     </section>
 
-    <!-- TAB 3: 滞销预警与清仓策略建议 (大图展板卡片模式，新增最近7天/30天销量最好排序) -->
+    <!-- TAB 3: 滞销预警与清仓策略建议 -->
     <section id="strategyTab" class="hidden space-y-5">
       <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -499,13 +486,9 @@
           </div>
         </div>
 
-        <!-- 大图卡片流容器 -->
-        <div id="slowMovingCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5">
-          <!-- JS 动态渲染大图卡片 -->
-        </div>
+        <div id="slowMovingCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5"></div>
       </div>
     </section>
-
 
     <!-- TAB 5: 店铺周销量矩阵与认领目标达成 -->
     <section id="storeMatrixTab" class="hidden space-y-5">
@@ -520,18 +503,16 @@
   <!-- 款式详情抽屉/模态框 -->
   <div id="detailModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-y-auto p-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
-      <button onclick="closeModal()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors">
+      <button onclick="closeModal()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors z-20">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
-      <div id="modalContent">
-        <!-- 动态注入单品详情 -->
-      </div>
+      <div id="modalContent"></div>
     </div>
   </div>
 
-  <!-- 纯净大图全屏查看 Modal (点击图片仅展示商品高清实物大图，剔除无关表格内容) -->
+  <!-- 纯净大图全屏查看 Modal -->
   <div id="pureImageModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-60 hidden flex items-center justify-center p-4" onclick="closePureImageModal()">
     <div class="relative max-w-3xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
       <button onclick="closePureImageModal()" class="absolute -top-3 -right-3 w-8 h-8 bg-white text-slate-800 rounded-full shadow-2xl flex items-center justify-center hover:bg-slate-200 font-bold text-sm transition-transform hover:scale-105 z-10">
@@ -549,11 +530,7 @@
     <span id="toastMsg">通知</span>
   </div>
 
-  <!-- 核心数据与业务逻辑驱动脚本 -->
   <script>
-    /* ==========================================================================
-       1. 系统常数与标准渠道列表
-       ========================================================================== */
     const CHANNELS = [
       '拼多多', '唯品会', '抖音', '天猫集团', '天猫男鞋',
       '天猫官方', '得物', '京东', '新零售', '跨境', '其他渠道', '好衣库/爱库存'
@@ -561,9 +538,8 @@
 
     const CYCLE_START = new Date('2026-09-01T00:00:00');
     const CYCLE_END = new Date('2027-02-01T23:59:59');
-    const TOTAL_CYCLE_DAYS = 154; // 154天
+    const TOTAL_CYCLE_DAYS = 154;
 
-    // 全局运行时状态
     let state = {
       simulatedDate: new Date('2026-10-27T00:00:00'),
       filterStart: new Date('2026-09-01T00:00:00'),
@@ -573,24 +549,19 @@
       fleece: 'ALL',
       season: 'ALL',
       searchSku: '',
-      displayMode: 'COMBINED', // 'COMBINED' | 'SALES' | 'TARGET' | 'ACHIEVEMENT'
+      displayMode: 'COMBINED',
       sortCol: 'totalSales',
       sortAsc: false,
-      pacingModel: 'SEASONAL', // 'SEASONAL' | 'LINEAR'
+      pacingModel: 'SEASONAL',
       activeTab: 'tableTab',
-
-      // 数据仓库
-      items: [],        // 单品资料: { 货号, 图片链接, 商品类目, 单/绒, 季节 }
-      inventory: {},    // 库存数据: { [货号]: { 仓库, 在仓库存, 在途库存, 总库存 } }
-      targets: {},      // 渠道销量目标: { [货号]: { [渠道]: 销量目标 } }
-      salesLogs: []     // 销售流水: [ { 货号, 店铺, 日期, 销量, 渠道归类 } ]
+      items: [],
+      inventory: {},
+      targets: {},
+      salesLogs: []
     };
 
     let weeklyChartInstance = null;
 
-    /* ==========================================================================
-       2. 初始化模拟测试数据 (单/绒严格设为 '单里' 与 '绒里')
-       ========================================================================== */
     function buildMockData() {
       const mockItems = [
         { 货号: 'A260901', 图片链接: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&h=500&fit=crop', 商品类目: '休闲老爹鞋', '单/绒': '单里', 季节: '2026秋' },
@@ -630,7 +601,7 @@
       const startMs = CYCLE_START.getTime();
       const dayCount = Math.floor((curMs - startMs) / (1000 * 3600 * 24));
 
-      mockItems.forEach((item, idx) => {
+      mockItems.forEach((item) => {
         const sku = item.货号;
         let popularity = 0.5;
         if (sku === 'C260905') popularity = 1.4;
@@ -668,9 +639,11 @@
       const dates = (state.salesLogs || []).map(x => String(x.日期 || '').slice(0,10)).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
       return dates.length ? dates.sort().at(-1) : CYCLE_START.toISOString().slice(0,10);
     }
+
     function getSelectedChannels() {
       return Array.isArray(state.channelGroup) && !state.channelGroup.includes('ALL') ? state.channelGroup : CHANNELS.slice();
     }
+
     function handleChannelGroupChange(changed) {
       const checks = [...document.querySelectorAll('#channelGroupCheckboxes input[type="checkbox"]')];
       const all = checks.find(x => x.value === 'ALL');
@@ -684,9 +657,6 @@
       renderAll();
     }
 
-    /* ==========================================================================
-       3. 核心计算与数据聚合 (以单品资料货号为唯一基线)
-       ========================================================================== */
     function aggregateData() {
       const fStartStr = state.filterStart.toISOString().split('T')[0];
       const fEndStr = state.filterEnd.toISOString().split('T')[0];
@@ -703,7 +673,6 @@
         const inv = state.inventory[sku] || { 仓库: '未录入', 在仓库存: 0, 在途库存: 0, 总库存: 0 };
         const tgtObj = state.targets[sku] || {};
 
-        // 流水按单品资料左连接
         const selectedChannels = getSelectedChannels();
         const logs = state.salesLogs.filter(l => l.货号 === sku && (state.channelGroup.includes('ALL') || selectedChannels.includes((l.渠道归类 || '').trim())));
 
@@ -722,11 +691,9 @@
         const transitStock = Number(inv.在途库存 || 0);
         const totalStock = Number(inv.总库存 || (warehouseStock + transitStock));
 
-        // 售罄率公式 = 累计销量 / (总库存 + 累计销量)
         const denominator = totalStock + totalSales;
         const sellThrough = denominator > 0 ? (totalSales / denominator) : 0;
 
-        // 统计各渠道销量与认领目标
         const channelData = {};
         let totalClaimedTarget = 0;
         let totalChannelSales = 0;
@@ -736,7 +703,6 @@
             .filter(l => (l.渠道归类 || '').trim() === ch)
             .reduce((sum, l) => sum + Number(l.销量 || 0), 0);
 
-          // 认领目标：若无认领则为 0 或 undefined
           const chTarget = Number(tgtObj[ch] || 0);
           const chRate = chTarget > 0 ? (chSales / chTarget) : 0;
 
@@ -748,12 +714,9 @@
           };
 
           totalChannelSales += chSales;
-          if (chTarget > 0) {
-            totalClaimedTarget += chTarget;
-          }
+          if (chTarget > 0) totalClaimedTarget += chTarget;
         });
 
-        // 总计列：只汇总实际认领的目标总额
         const totalRate = totalClaimedTarget > 0 ? (totalChannelSales / totalClaimedTarget) : 0;
         channelData['总计'] = {
           sales: totalChannelSales,
@@ -781,27 +744,19 @@
       });
     }
 
-    /* ==========================================================================
-       4. 渠道可见性过滤
-       ========================================================================== */
     function getVisibleChannels() {
       const selected = getSelectedChannels();
       return [...selected, '总计'];
     }
 
-    /* ==========================================================================
-       5. 渲染主表格 (冻结行标题+冻结货号图片列+纯白底纹+大图片+纯净大图预览)
-       ========================================================================== */
     function renderMainTable(data) {
       const tbody = document.getElementById('tableBody');
       const tfoot = document.getElementById('tableFoot');
       const visibleChannels = getVisibleChannels();
 
-      // 动态更新第1行表头「不同渠道的销量及销量目标」的 Colspan，确保完全覆盖
       const chHeader = document.getElementById('channelGroupHeader');
       chHeader.setAttribute('colspan', visibleChannels.length);
 
-      // 动态更新第2行表头中的渠道表头，保持前2列冻结类名与列名一致
       const trHeader2 = document.querySelector('.table-sticky-row2');
       const baseThHtml = `
         <th class="th-sticky-corner-sku-2 py-2.5 px-3 border-r border-slate-200">货号</th>
@@ -821,7 +776,6 @@
       });
       trHeader2.innerHTML = baseThHtml + channelsThHtml;
 
-      // 过滤与排序（单里、绒里兼容筛选）
       let filtered = data.filter(row => {
         if (state.category !== 'ALL' && row.category !== state.category) return false;
         if (state.fleece !== 'ALL') {
@@ -843,13 +797,11 @@
 
       document.getElementById('filteredCount').innerText = filtered.length;
 
-      // 渲染行
       let bodyHtml = '';
       filtered.forEach((row, idx) => {
         const stPercent = (row.sellThrough * 100).toFixed(1);
         const isLowSell = row.sellThrough < 0.25;
 
-        // 渠道列单元格：若无认领目标，0不显示，不显示 / 0
         let channelCellsHtml = '';
         visibleChannels.forEach(ch => {
           const chObj = row.channels[ch] || { sales: 0, target: 0, hasTarget: false, rate: 0 };
@@ -892,11 +844,9 @@
 
         bodyHtml += `
           <tr class="hover:bg-indigo-50/20 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}">
-            <!-- 冻结第1列：货号 -->
             <td class="col-sticky-sku py-3 px-3 border-r border-slate-200 font-bold text-indigo-600 cursor-pointer hover:underline" onclick="showSkuDetail('${row.sku}')">
               ${row.sku}
             </td>
-            <!-- 冻结第2列：加大尺寸图片 + 悬停预览浮窗 + 点击纯净大图 -->
             <td class="col-sticky-img py-2.5 px-3 border-r border-slate-300 text-center">
               <div class="img-hover-container inline-block">
                 <img src="${row.image}" alt="${row.sku}" 
@@ -925,7 +875,6 @@
       });
       tbody.innerHTML = bodyHtml || `<tr><td colspan="23" class="py-12 text-center text-slate-400">暂无符合条件的货号记录</td></tr>`;
 
-      // 计算合计汇总行（支持首两列冻结）
       let sum7 = 0, sum30 = 0, sumTotalSales = 0, sumWStock = 0, sumTStock = 0, sumStock = 0;
       const sumChannelSales = {};
       const sumChannelTargets = {};
@@ -982,7 +931,6 @@
         </tr>
       `;
 
-      // 刷新顶部 KPI
       document.getElementById('kpiSkuCount').innerText = filtered.length;
       document.getElementById('kpiTotalSales').innerText = sumTotalSales.toLocaleString();
       document.getElementById('kpiTotalStock').innerText = sumStock.toLocaleString();
@@ -996,9 +944,6 @@
       document.getElementById('renderTimeText').innerText = `更新时间: ${new Date().toLocaleTimeString()}`;
     }
 
-    /* ==========================================================================
-       6. 按「总库存」拆解每周销售目标与节奏追踪
-       ========================================================================== */
     function generateWeeksSchedule() {
       const weeks = [];
       const latestStr = getLatestSalesDate();
@@ -1021,7 +966,6 @@
       const tbody = document.getElementById('weeklyTableBody');
       const curDateStr = getLatestSalesDate();
 
-      // 提取当前筛选条件下的总库存基数 (要求：按总库存拆解每周的销售目标)
       const aggregated = aggregateData();
       const totalInventoryToClear = aggregated.reduce((acc, row) => acc + (row.totalStock || 0), 0);
       document.getElementById('weeklyBaseTotalStock').innerText = totalInventoryToClear.toLocaleString();
@@ -1043,7 +987,6 @@
       let tableHtml = '';
 
       weeks.forEach((w) => {
-        // 按总库存拆解每周目标
         let weekTarget = 0;
         if (pacingModel === 'SEASONAL') {
           weekTarget = Math.round(totalInventoryToClear * w.weight);
@@ -1051,13 +994,11 @@
           weekTarget = Math.round(totalInventoryToClear / 22);
         }
 
-        // 周实际销售计算 (从该款式的流水中统计该周总销量)
         const selectedChannelsForWeek = getSelectedChannels();
         const wSales = state.salesLogs
           .filter(l => l.日期 >= w.startStr && l.日期 <= w.endStr && (state.channelGroup.includes('ALL') || selectedChannelsForWeek.includes((l.渠道归类 || '').trim())))
           .reduce((sum, l) => sum + Number(l.销量 || 0), 0);
 
-        // 判断时间进度状态
         let statusTag = '';
         const isPast = w.endStr < curDateStr;
         const isCurrent = (w.startStr <= curDateStr && w.endStr >= curDateStr);
@@ -1073,9 +1014,7 @@
         }
 
         cumTarget += weekTarget;
-        if (isPast || isCurrent) {
-          cumSales += wSales;
-        }
+        if (isPast || isCurrent) cumSales += wSales;
 
         const weekRate = weekTarget > 0 ? (wSales / weekTarget) : 0;
         const cumRate = totalInventoryToClear > 0 ? (cumSales / totalInventoryToClear) : 0;
@@ -1114,14 +1053,11 @@
 
       tbody.innerHTML = tableHtml;
 
-      // 更新卡片数据
       const totalAchieveRate = totalInventoryToClear > 0 ? (cumSales / totalInventoryToClear) * 100 : 0;
       document.getElementById('weeklySalesProgressText').innerText = `${totalAchieveRate.toFixed(1)}%`;
-
       document.getElementById('currentWeekTargetText').innerText = `${currentWeekTargetVal.toLocaleString()} 件`;
       document.getElementById('currentWeekActualText').innerText = `本周已完成: ${currentWeekActualVal.toLocaleString()} 件`;
 
-      // 测算消化周期
       const sum30 = aggregated.reduce((acc, r) => acc + r.sales30, 0);
       const dailyVelocity = sum30 / 30;
       if (dailyVelocity > 0) {
@@ -1133,15 +1069,12 @@
         document.getElementById('stockVelocityText').innerText = `近30天无动销`;
       }
 
-      // 渲染图表
       renderWeeklyChart(labels, weeklyTargetsData, weeklyActualsData, cumRateData);
     }
 
     function renderWeeklyChart(labels, targets, actuals, cumRates) {
       const ctx = document.getElementById('weeklyChart').getContext('2d');
-      if (weeklyChartInstance) {
-        weeklyChartInstance.destroy();
-      }
+      if (weeklyChartInstance) weeklyChartInstance.destroy();
 
       weeklyChartInstance = new Chart(ctx, {
         type: 'bar',
@@ -1204,9 +1137,6 @@
       });
     }
 
-    /* ==========================================================================
-       7. 滞销预警与清仓策略建议 (支持最近7天、30天销量最好等多元排序)
-       ========================================================================== */
     function renderStrategyModule(data) {
       const timePacing = getTimeProgress();
       document.getElementById('alertTimePacing').innerText = `${(timePacing * 100).toFixed(1)}%`;
@@ -1215,7 +1145,11 @@
 
       let sluggishList = data.filter(row => {
         if (state.category !== 'ALL' && row.category !== state.category) return false;
-        if (state.fleece !== 'ALL') { const f=(row.fleece||'').trim(); if(state.fleece==='单里' && !(f==='单里'||f==='单')) return false; if(state.fleece==='绒里' && !(f==='绒里'||f==='绒')) return false; }
+        if (state.fleece !== 'ALL') {
+          const f = (row.fleece || '').trim();
+          if (state.fleece === '单里' && !(f === '单里' || f === '单')) return false;
+          if (state.fleece === '绒里' && !(f === '绒里' || f === '绒')) return false;
+        }
         if (state.season !== 'ALL' && row.season !== state.season) return false;
         if (state.searchSku && !row.sku.toLowerCase().includes(state.searchSku.toLowerCase())) return false;
         return true;
@@ -1244,11 +1178,9 @@
         const daysToClear = dailyVel > 0 ? Math.round(item.totalStock / dailyVel) : 999;
         const fleeceLabel = (item.fleece.includes('绒')) ? '绒里' : '单里';
 
-
         return `
           <div class="bg-white rounded-2xl border ${isUrgent ? 'border-red-200 ring-2 ring-red-100' : 'border-slate-200'} shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
             <div>
-              <!-- 大图展示容器：点击仅查看高清纯净商品大图 -->
               <div class="relative w-full h-56 bg-slate-100 overflow-hidden group cursor-pointer" onclick="showSkuDetail('${item.sku}')">
                 <img src="${item.image}" alt="${item.sku}" onerror="this.src='https://placehold.co/400x400/f1f5f9/94a3b8?text=商品图'" 
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
@@ -1267,14 +1199,12 @@
                 </div>
               </div>
 
-              <!-- 卡片信息区 -->
               <div class="p-4 space-y-3">
                 <div class="flex items-center justify-between">
                   <span class="text-sm font-extrabold text-slate-900 underline decoration-slate-400 underline-offset-4 hover:text-indigo-600 cursor-pointer" onclick="showSkuDetail('${item.sku}')">${item.sku}</span>
                   <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">${item.category} · ${item.season}</span>
                 </div>
 
-                <!-- 销存数据栅格 -->
                 <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl text-center text-xs">
                   <div>
                     <div class="text-[10px] text-slate-400">待清总库存</div>
@@ -1290,14 +1220,12 @@
                   </div>
                 </div>
 
-                <!-- 消化天数警示 -->
                 <div class="text-xs flex items-center justify-between text-slate-600">
                   <span>预估消化周期:</span>
                   <span class="font-bold ${daysToClear > 150 ? 'text-red-600' : 'text-slate-800'}">
                     ${daysToClear === 999 ? '🚨 近30天无动销' : `约 ${daysToClear} 天`}
                   </span>
                 </div>
-
               </div>
             </div>
 
@@ -1311,9 +1239,6 @@
       }).join('');
     }
 
-    /* ==========================================================================
-       8. 时间进度计算
-       ========================================================================== */
     function getTimeProgress() {
       const cur = state.simulatedDate.getTime();
       const st = CYCLE_START.getTime();
@@ -1342,13 +1267,9 @@
 
       const curStr = state.simulatedDate.toISOString().split('T')[0];
       const pickerEl = document.getElementById('simulatedDatePicker');
-      if (pickerEl && pickerEl.value !== curStr) {
-        pickerEl.value = curStr;
-      }
+      if (pickerEl && pickerEl.value !== curStr) pickerEl.value = curStr;
       const badgeEl = document.getElementById('currentDateBadge');
-      if (badgeEl) {
-        badgeEl.innerText = `基准计算日: ${curStr}`;
-      }
+      if (badgeEl) badgeEl.innerText = `基准计算日: ${curStr}`;
     }
 
     function onSimulatedDateChange(newVal) {
@@ -1358,9 +1279,6 @@
       showToast(`基准日期已调整为 ${newVal}`);
     }
 
-    /* ==========================================================================
-       9. 筛选、排序与视图交互
-       ========================================================================== */
     function setDateRange(type) {
       if (type === 'ALL') {
         state.filterStart = new Date(CYCLE_START);
@@ -1423,10 +1341,9 @@
         }
       });
 
-      if (tabId === 'weeklyTab') { renderWeeklyModule(); }
-      if (tabId === 'storeMatrixTab') { renderStoreWeekMatrix(); } else if (tabId === 'strategyTab') {
-        renderStrategyModule(aggregateData());
-      }
+      if (tabId === 'weeklyTab') renderWeeklyModule();
+      if (tabId === 'storeMatrixTab') renderStoreWeekMatrix();
+      if (tabId === 'strategyTab') renderStrategyModule(aggregateData());
     }
 
     function populateFilterDropdowns() {
@@ -1440,9 +1357,6 @@
       seaEl.innerHTML = `<option value="ALL">全部季节</option>` + seasons.map(s => `<option value="${s}">${s}</option>`).join('');
     }
 
-    /* ==========================================================================
-       10. 纯净大图放大查看器（只展示商品图片，不附带任何无关表格内容）
-       ========================================================================== */
     function openPureImageModal(src, sku) {
       document.getElementById('pureModalImg').src = src;
       document.getElementById('pureModalCaption').innerText = `商品实物图 · 货号: ${sku}`;
@@ -1482,39 +1396,54 @@
       };
 
       const content = `
-        <div class="flex items-start space-x-4 border-b border-slate-100 pb-4">
-          <img src="${item.图片链接}" onclick="openPureImageModal('${item.图片链接}', '${item.货号}')" class="w-24 h-24 object-cover rounded-2xl border border-slate-200 cursor-zoom-in hover:scale-105 transition-transform">
-          <div class="space-y-1">
-            <div class="flex items-center space-x-2">
-              <span class="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md font-bold">${item.货号}</span>
-              <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">${item.商品类目}</span>
-              <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md">${fleeceLabel}</span>
+        <!-- 弹窗顶端：左侧基本信息 + 右上角最顶端在仓库存、在途库存、待清总库存、累计销量 KPI 排版 -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 pr-10 gap-3.5">
+          <!-- 左侧：图片与商品基础属性 -->
+          <div class="flex items-start space-x-3.5">
+            <img src="${item.图片链接}" onclick="openPureImageModal('${item.图片链接}', '${item.货号}')" class="w-20 h-20 sm:w-22 sm:h-22 object-cover rounded-2xl border border-slate-200 cursor-zoom-in hover:scale-105 transition-transform shrink-0 shadow-2xs">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md font-bold">${item.货号}</span>
+                <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">${item.商品类目}</span>
+                <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-medium">${fleeceLabel}</span>
+                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">${item.季节}</span>
+              </div>
+              <h3 class="text-base font-bold text-slate-900 mt-1">${item.商品类目} · 主仓: <span class="font-semibold text-slate-700">${inv.仓库}</span></h3>
+              <p class="text-xs text-slate-500 flex items-center gap-1.5">
+                <span>综合售罄率:</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-black ${aggregated.sellThrough < 0.25 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">
+                  ${(aggregated.sellThrough * 100).toFixed(1)}%
+                </span>
+              </p>
             </div>
-            <h3 class="text-base font-bold text-slate-900 mt-1">${item.商品类目} · 季节: ${item.季节}</h3>
-            <p class="text-xs text-slate-500">主仓库: ${inv.仓库} · 综合售罄率: <strong class="text-indigo-600 text-sm font-black">${(aggregated.sellThrough * 100).toFixed(1)}%</strong></p>
+          </div>
+
+          <!-- 右上角最顶端：在仓库存、在途库存、待清总库存、累计销量 精致紧凑 KPI 排版 -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 shrink-0 self-start lg:self-center">
+            <!-- 1. 在仓库存 -->
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2 text-center min-w-[92px] shadow-2xs">
+              <div class="text-[10px] font-medium text-slate-500 tracking-tight">在仓库存</div>
+              <div class="text-sm sm:text-base font-bold text-slate-800 leading-tight mt-0.5">${(Number(inv.在仓库存) || 0).toLocaleString()}</div>
+            </div>
+            <!-- 2. 在途库存 -->
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2 text-center min-w-[92px] shadow-2xs">
+              <div class="text-[10px] font-medium text-slate-500 tracking-tight">在途库存</div>
+              <div class="text-sm sm:text-base font-bold text-slate-800 leading-tight mt-0.5">${(Number(inv.在途库存) || 0).toLocaleString()}</div>
+            </div>
+            <!-- 3. 待清总库存 -->
+            <div class="bg-amber-50/70 border border-amber-200/80 rounded-xl px-3.5 py-2 text-center min-w-[98px] shadow-2xs">
+              <div class="text-[10px] font-bold text-amber-700 tracking-tight">待清总库存</div>
+              <div class="text-sm sm:text-base font-black text-amber-600 leading-tight mt-0.5">${(Number(aggregated.totalStock) || 0).toLocaleString()}</div>
+            </div>
+            <!-- 4. 累计销量 -->
+            <div class="bg-blue-50/70 border border-blue-200/80 rounded-xl px-3.5 py-2 text-center min-w-[98px] shadow-2xs">
+              <div class="text-[10px] font-bold text-blue-700 tracking-tight">累计销量</div>
+              <div class="text-sm sm:text-base font-black text-blue-600 leading-tight mt-0.5">${(Number(aggregated.totalSales) || 0).toLocaleString()}</div>
+            </div>
           </div>
         </div>
 
-        <div class="grid grid-cols-4 gap-2 my-4 text-center">
-          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <div class="text-[10px] text-slate-400">在仓库存</div>
-            <div class="text-base font-bold text-slate-800">${inv.在仓库存}</div>
-          </div>
-          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <div class="text-[10px] text-slate-400">在途库存</div>
-            <div class="text-base font-bold text-slate-800">${inv.在途库存}</div>
-          </div>
-          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <div class="text-[10px] text-slate-400">待清总库存</div>
-            <div class="text-base font-bold text-amber-700">${aggregated.totalStock}</div>
-          </div>
-          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <div class="text-[10px] text-slate-400">累计销量</div>
-            <div class="text-base font-bold text-blue-600">${aggregated.totalSales}</div>
-          </div>
-        </div>
-
-        <div>
+        <div class="mt-4">
           <h4 class="text-xs font-bold text-slate-800 mb-2">渠道认领目标与近期动销明细</h4>
           <div class="rounded-xl border border-slate-200 overflow-x-hidden">
             <table class="w-full table-fixed text-[11px] text-right border-collapse leading-tight">
@@ -1553,9 +1482,6 @@
       document.getElementById('detailModal').classList.add('hidden');
     }
 
-    /* ==========================================================================
-       11. Excel 导出 (使用 ExcelJS 将图片真实嵌入单元格，并复刻双层表头)
-       ========================================================================== */
     async function convertImageUrlToBase64(url, sku) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -1608,7 +1534,6 @@
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('滞销款销售跟进表');
 
-        // 设置列宽：图片列设置宽度以容纳真实图片
         const cols = [
           { key: 'sku', width: 14 },
           { key: 'image', width: 14 },
@@ -1623,13 +1548,11 @@
         visibleChannels.forEach(c => cols.push({ key: c, width: 15 }));
         worksheet.columns = cols;
 
-        // 第一行复合表头
         const row1Values = Array(9).fill('');
         row1Values[0] = '单品基础及总销存数据';
         row1Values[9] = '不同渠道的销量及认领的目标';
         const headerRow1 = worksheet.addRow(row1Values);
 
-        // 合并第一行单元格
         worksheet.mergeCells(1, 1, 1, 9);
         worksheet.mergeCells(1, 10, 1, 9 + visibleChannels.length);
 
@@ -1637,7 +1560,6 @@
         headerRow1.font = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
         headerRow1.alignment = { vertical: 'middle', horizontal: 'center' };
 
-        // 第二行详细表头
         const row2Values = [
           '货号', '图片', '最近7天销量', '最近30天销量', '9-2月销量',
           '在仓库存', '在途库存', '总库存', '售罄率'
@@ -1649,14 +1571,13 @@
         headerRow2.font = { bold: true, size: 10, color: { argb: 'FF334155' } };
         headerRow2.alignment = { vertical: 'middle', horizontal: 'center' };
 
-        // 填充数据行并异步转绘嵌入真实图片
         for (let i = 0; i < data.length; i++) {
           const item = data[i];
-          const currentRowIndex = 3 + i; // 从第3行开始写数据
+          const currentRowIndex = 3 + i;
 
           const rowData = [
             item.sku,
-            '', // 图片由 ExcelJS addImage 覆盖于该单元格
+            '',
             item.sales7,
             item.sales30,
             item.totalSales,
@@ -1678,10 +1599,9 @@
           });
 
           const dataRow = worksheet.addRow(rowData);
-          dataRow.height = 54; // 设置行高以便完整显示大图
+          dataRow.height = 54;
           dataRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-          // 异步转 Base64 并插入真图片到 Excel
           try {
             const base64Data = await convertImageUrlToBase64(item.image, item.sku);
             const imageId = workbook.addImage({
@@ -1698,7 +1618,6 @@
           }
         }
 
-        // 导出文件
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         saveAs(blob, `滞销款销售跟进表_带图片_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -1713,9 +1632,6 @@
       }
     }
 
-    /* ==========================================================================
-       12. Excel 导入解析 (自动识别各 Sheet)
-       ========================================================================== */
     function handleExcelUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1728,7 +1644,6 @@
 
           let foundAny = false;
 
-          // 1. 读取「单品资料」
           const itemSheetName = workbook.SheetNames.find(n => n.includes('单品') || n.includes('资料') || n.includes('Master'));
           if (itemSheetName) {
             const rawItems = XLSX.utils.sheet_to_json(workbook.Sheets[itemSheetName]);
@@ -1748,7 +1663,6 @@
             }
           }
 
-          // 2. 读取「库存数据」
           const invSheetName = workbook.SheetNames.find(n => n.includes('库存') || n.includes('Stock'));
           if (invSheetName) {
             const rawInv = XLSX.utils.sheet_to_json(workbook.Sheets[invSheetName]);
@@ -1770,7 +1684,6 @@
             foundAny = true;
           }
 
-          // 3. 读取「渠道销量目标」
           const tgtSheetName = workbook.SheetNames.find(n => n.includes('目标') || n.includes('Target'));
           if (tgtSheetName) {
             const rawTgt = XLSX.utils.sheet_to_json(workbook.Sheets[tgtSheetName]);
@@ -1787,7 +1700,6 @@
             foundAny = true;
           }
 
-          // 4. 读取「销售数据」
           const salesSheetName = workbook.SheetNames.find(n => n.includes('销售') || n.includes('Sales') || n.includes('流水'));
           if (salesSheetName) {
             const rawSales = XLSX.utils.sheet_to_json(workbook.Sheets[salesSheetName]);
@@ -1841,9 +1753,6 @@
       }, 3000);
     }
 
-    /* ==========================================================================
-       13. 统一渲染入口
-       ========================================================================== */
     function renderAll() {
       state.category = document.getElementById('categoryFilter').value;
       state.fleece = document.getElementById('fleeceFilter').value;
@@ -1860,13 +1769,9 @@
       renderStrategyModule(aggregatedData);
       renderStoreWeekMatrix();
 
-      if (state.activeTab === 'weeklyTab') {
-        renderWeeklyModule();
-      }
+      if (state.activeTab === 'weeklyTab') renderWeeklyModule();
     }
 
-
-    // 登录控制：密码输入框使用 password 类型进行脱敏显示
     const AUTH_USERS = {'10211': { password: 'abc@10211', label: '管理账号' }, '14599': { password: '888888', label: '业务账号' }, '095男鞋': { password: '123456', label: '男鞋业务' }};
     let loggedInUser = null;
     function loginSystem() {
@@ -1893,7 +1798,6 @@
         values.push(total);
       });
       if(skuWeeklyChartInstance) skuWeeklyChartInstance.destroy();
-      // 自定义数据标签插件，不依赖额外 Chart.js 插件
       const pointValueLabels = { id:'skuWeeklyPointValueLabels', afterDatasetsDraw(chart) {
         const {ctx} = chart; ctx.save(); ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
         chart.data.datasets.forEach((dataset, datasetIndex) => {
@@ -1912,9 +1816,8 @@
       const body = document.getElementById('storeWeekMatrixBody');
       if (!head || !body) return;
 
-      // 与全局筛选器同步：渠道归类项目组、品类、季节、单里/绒里
       const latest = getLatestSalesDate();
-      const weeks = generateWeeksSchedule(); // 自动截止最新销售日期，未来周不显示
+      const weeks = generateWeeksSchedule();
       const selectedChannels = getSelectedChannels();
       const channelSet = new Set(selectedChannels);
       const filteredItems = (state.items || []).filter(item => {
@@ -1927,7 +1830,6 @@
       });
       const filteredSkuSet = new Set(filteredItems.map(item => String(item.货号 || '').trim()).filter(Boolean));
 
-      // 周销量按销售表“渠道归类”汇总；认领目标读取“渠道销量目标”工作表中的“销量目标”列。
       const salesInScope = (state.salesLogs || []).filter(row => {
         const channel = String(row.渠道归类 || '').trim();
         const sku = String(row.货号 || '').trim();
@@ -1968,7 +1870,6 @@
 
     function exportStoreWeekMatrixCSV(){const table=document.querySelector('#storeMatrixTab table');if(!table)return;const csv=[...table.rows].map(r=>[...r.cells].map(c=>'"'+c.innerText.replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='渠道周销量矩阵与认领目标达成.csv';a.click();URL.revokeObjectURL(a.href);}
 
-    // 页面加载启动
     window.onload = function() {
       buildMockData();
       updateTimeProgressUI();

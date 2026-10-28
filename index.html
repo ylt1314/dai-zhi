@@ -494,7 +494,7 @@
     <section id="storeMatrixTab" class="hidden space-y-5">
       <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-4"><div><h3 class="text-base font-bold text-slate-900">店铺周销量矩阵与认领目标达成</h3><p class="text-xs text-slate-500 mt-1">按店铺汇总每周实际销量、目标认领与完成率。</p></div><button onclick="exportStoreWeekMatrixCSV()" class="text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">导出 CSV</button></div>
-        <div class="overflow-auto max-h-[620px]"><table class="min-w-full text-xs text-center border-collapse"><thead id="storeWeekMatrixHead" class="sticky top-0 bg-slate-50 z-10"></thead><tbody id="storeWeekMatrixBody"></tbody></table></div>
+        <div class="overflow-auto max-h-[620px]"><table class="min-w-full text-xs text-center border-collapse"><thead id="storeWeekMatrixHead" class="sticky top-0 bg-slate-50 z-10"></thead><tbody id="storeWeekMatrixBody"></tbody><tfoot id="storeWeekMatrixFoot" class="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-900 sticky bottom-0 z-10 shadow-xs"></tfoot></table></div>
       </div>
     </section>
 
@@ -1921,6 +1921,7 @@
     function renderStoreWeekMatrix() {
       const head = document.getElementById('storeWeekMatrixHead');
       const body = document.getElementById('storeWeekMatrixBody');
+      const foot = document.getElementById('storeWeekMatrixFoot');
       if (!head || !body) return;
 
       const latest = getLatestSalesDate();
@@ -1952,12 +1953,22 @@
       });
 
       const channelsWithData = selectedChannels.filter(channel => channel !== 'ALL');
+      const weekSums = new Array(weeks.length).fill(0);
+      let totalSalesSum = 0;
+      let totalTargetSum = 0;
+
       const rows = channelsWithData.map(channel => {
-        const weeklyValues = weeks.map(week => salesInScope
-          .filter(row => String(row.渠道归类 || '').trim() === channel && row.日期 >= week.startStr && row.日期 <= week.endStr)
-          .reduce((sum, row) => sum + (Number(row.销量) || 0), 0));
+        const weeklyValues = weeks.map((week, wIdx) => {
+          const val = salesInScope
+            .filter(row => String(row.渠道归类 || '').trim() === channel && row.日期 >= week.startStr && row.日期 <= week.endStr)
+            .reduce((sum, row) => sum + (Number(row.销量) || 0), 0);
+          weekSums[wIdx] += val;
+          return val;
+        });
         const totalSales = weeklyValues.reduce((sum, value) => sum + value, 0);
+        totalSalesSum += totalSales;
         const target = targetByChannel[channel] || 0;
+        totalTargetSum += target;
         const achievement = target > 0 ? totalSales / target * 100 : null;
         return `<tr class="hover:bg-blue-50">
           <td class="p-2 border text-left font-semibold sticky left-0 bg-white">${channel}</td>
@@ -1970,6 +1981,21 @@
 
       head.innerHTML = `<tr><th class="p-2 border sticky left-0 bg-slate-50">渠道归类</th>${weeks.map(week => `<th class="p-2 border min-w-16">${week.start.getMonth()+1}/${week.start.getDate()}周</th>`).join('')}<th class="p-2 border">累计销量</th><th class="p-2 border">认领目标（销量目标）</th><th class="p-2 border">达成率</th></tr>`;
       body.innerHTML = rows.join('') || `<tr><td colspan="${weeks.length + 4}" class="p-8 text-slate-400">当前筛选条件下暂无渠道销售数据，请检查销售表中的渠道归类、日期、销量及单品资料匹配情况。</td></tr>`;
+
+      if (foot) {
+        if (rows.length > 0) {
+          const totalAchievement = totalTargetSum > 0 ? (totalSalesSum / totalTargetSum * 100) : null;
+          foot.innerHTML = `<tr>
+            <td class="p-2 border text-left font-extrabold sticky left-0 bottom-0 bg-slate-100 z-20">汇总合计</td>
+            ${weekSums.map(v => `<td class="p-2 border font-black text-blue-900">${v ? v.toLocaleString() : '—'}</td>`).join('')}
+            <td class="p-2 border font-black text-blue-900">${totalSalesSum.toLocaleString()}</td>
+            <td class="p-2 border font-extrabold text-slate-800">${totalTargetSum.toLocaleString()}</td>
+            <td class="p-2 border"><span class="px-2 py-1 rounded-full font-bold ${totalAchievement !== null && totalAchievement >= 100 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">${totalAchievement === null ? '—' : totalAchievement.toFixed(1) + '%'}</span></td>
+          </tr>`;
+        } else {
+          foot.innerHTML = '';
+        }
+      }
 
       const desc = document.querySelector('#storeMatrixTab p');
       if (desc) desc.textContent = `按销售表“渠道归类”汇总每周实际销量；认领目标取自“渠道销量目标”工作表的“销量目标”列。已关联渠道项目组、品类、季节、单里/绒里筛选。统计截止：${latest}，未来周随导入日期自动扩展。`;

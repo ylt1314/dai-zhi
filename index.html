@@ -93,7 +93,7 @@
     <div class="relative w-full max-w-md bg-white/95 border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/70 p-8">
       <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 text-white flex items-center justify-center text-xl font-black shadow-lg shadow-blue-100 mb-5">ST</div>
       <div class="text-xs font-bold tracking-[.2em] text-blue-600 mb-2">BUSINESS INTELLIGENCE</div>
-      <h2 class="text-2xl font-black text-slate-900">滞销款销售跟进与渠道消化跟踪</h2><p class="text-sm text-slate-500 mt-2 mb-7">登录后查看商品去化、渠道认领与周销进度</p>
+      <h2 class="text-2xl font-black text-slate-900 mb-6">滞销款销售跟进与渠道消化跟踪</h2>
       <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="loginAccount">登录账号</label>
       <select id="loginAccount" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option value="10211">10211 · 管理账号</option><option value="14599">14599 · 业务账号</option><option value="095男鞋">095男鞋 · 男鞋业务</option></select>
       <label class="block text-xs font-semibold text-slate-600 mt-4 mb-1.5" for="loginPassword">登录密码</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入登录密码" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" onkeydown="if(event.key==='Enter')loginSystem()">
@@ -1446,8 +1446,21 @@
       });
       const totAchievePct = sumTotTarget > 0 ? (sumTotSales / sumTotTarget * 100) : null;
 
+      // 根据近7天销售计算可销售天数 (总库存 / (近7天销量 / 7))
+      const s7Daily = (aggregated.sales7 || 0) / 7;
+      const daysOfSupply = s7Daily > 0 ? Math.round(aggregated.totalStock / s7Daily) : null;
+      let daysDisplay = '';
+      let daysColor = '';
+      if (daysOfSupply === null) {
+        daysDisplay = '无动销';
+        daysColor = 'text-rose-600 font-bold';
+      } else {
+        daysDisplay = `${daysOfSupply} 天`;
+        daysColor = daysOfSupply > 120 ? 'text-rose-600 font-black' : (daysOfSupply > 60 ? 'text-amber-600 font-black' : 'text-emerald-600 font-black');
+      }
+
       const content = `
-        <!-- 弹窗顶端：左侧基本信息 + 右上角最顶端在仓库存、在途库存、待清总库存、累计销量 KPI 排版 -->
+        <!-- 弹窗顶端：左侧基本信息 + 右上角最顶端在仓库存、在途库存、待清总库存、累计销量、可销售天数 KPI 排版 -->
         <div class="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 pr-10 gap-3.5">
           <!-- 左侧：图片与商品基础属性 -->
           <div class="flex items-start space-x-3.5">
@@ -1469,27 +1482,32 @@
             </div>
           </div>
 
-          <!-- 右上角最顶端：在仓库存、在途库存、待清总库存、累计销量 精致紧凑 KPI 排版 -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 shrink-0 self-start lg:self-center">
+          <!-- 右上角最顶端：在仓库存、在途库存、待清总库存、累计销量、可销售天数 精致紧凑 KPI 排版 -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 shrink-0 self-start lg:self-center">
             <!-- 1. 在仓库存 -->
-            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2 text-center min-w-[92px] shadow-2xs">
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 text-center min-w-[88px] shadow-2xs">
               <div class="text-[10px] font-medium text-slate-500 tracking-tight">在仓库存</div>
               <div class="text-sm sm:text-base font-bold text-slate-800 leading-tight mt-0.5">${(Number(inv.在仓库存) || 0).toLocaleString()}</div>
             </div>
             <!-- 2. 在途库存 -->
-            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2 text-center min-w-[92px] shadow-2xs">
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 text-center min-w-[88px] shadow-2xs">
               <div class="text-[10px] font-medium text-slate-500 tracking-tight">在途库存</div>
               <div class="text-sm sm:text-base font-bold text-slate-800 leading-tight mt-0.5">${(Number(inv.在途库存) || 0).toLocaleString()}</div>
             </div>
             <!-- 3. 待清总库存 -->
-            <div class="bg-amber-50/70 border border-amber-200/80 rounded-xl px-3.5 py-2 text-center min-w-[98px] shadow-2xs">
+            <div class="bg-amber-50/70 border border-amber-200/80 rounded-xl px-3 py-2 text-center min-w-[92px] shadow-2xs">
               <div class="text-[10px] font-bold text-amber-700 tracking-tight">待清总库存</div>
               <div class="text-sm sm:text-base font-black text-amber-600 leading-tight mt-0.5">${(Number(aggregated.totalStock) || 0).toLocaleString()}</div>
             </div>
             <!-- 4. 累计销量 -->
-            <div class="bg-blue-50/70 border border-blue-200/80 rounded-xl px-3.5 py-2 text-center min-w-[98px] shadow-2xs">
+            <div class="bg-blue-50/70 border border-blue-200/80 rounded-xl px-3 py-2 text-center min-w-[92px] shadow-2xs">
               <div class="text-[10px] font-bold text-blue-700 tracking-tight">累计销量</div>
               <div class="text-sm sm:text-base font-black text-blue-600 leading-tight mt-0.5">${(Number(aggregated.totalSales) || 0).toLocaleString()}</div>
+            </div>
+            <!-- 5. 可销售天数 (基于近7天销售速度) -->
+            <div class="bg-purple-50/70 border border-purple-200/80 rounded-xl px-3 py-2 text-center min-w-[92px] shadow-2xs">
+              <div class="text-[10px] font-bold text-purple-700 tracking-tight" title="总库存 / (近7天销量 / 7)">可销售天数</div>
+              <div class="text-sm sm:text-base ${daysColor} leading-tight mt-0.5">${daysDisplay}</div>
             </div>
           </div>
         </div>

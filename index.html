@@ -13,6 +13,8 @@
   <!-- ExcelJS & FileSaver 用于支持真正带图片的Excel导出 -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <!-- html2pdf 用于生成免截断横向 A4 PDF 报表 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -44,7 +46,7 @@
       background-color: #ffffff;
       box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.05);
     }
-    /* 表头与冻结列交叉的左上角单元格（需最高 z-index 防止穿透） */
+    /* 表头与冻结列交叉的左上角单元格 */
     .th-sticky-corner-sku-1 { position: sticky; top: 0; left: 0px; z-index: 35; background-color: #ffffff !important; }
     .th-sticky-corner-img-1 { position: sticky; top: 0; left: 105px; z-index: 35; background-color: #ffffff !important; box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.05); }
     .th-sticky-corner-sku-2 { position: sticky; top: 34px; left: 0px; z-index: 35; background-color: #ffffff !important; }
@@ -83,6 +85,40 @@
       from { opacity: 0; transform: scale(0.96); }
       to { opacity: 1; transform: scale(1); }
     }
+
+    /* 横向 A4 打印与排版规则 */
+    @page {
+      size: A4 landscape;
+      margin: 8mm 10mm;
+    }
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      header, #loginOverlay, #toast, .print-hide {
+        display: none !important;
+      }
+      /* 当弹窗打开时，专注打印横向A4的款模型报告 */
+      body:has(#detailModal:not(.hidden)) > *:not(#detailModal) {
+        display: none !important;
+      }
+      #detailModal:not(.hidden) {
+        position: static !important;
+        background: transparent !important;
+        padding: 0 !important;
+        display: block !important;
+      }
+      #detailModal:not(.hidden) > div {
+        max-width: 100% !important;
+        max-height: none !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
@@ -95,7 +131,7 @@
       <div class="text-xs font-bold tracking-[.2em] text-blue-600 mb-2">BUSINESS INTELLIGENCE</div>
       <h2 class="text-2xl font-black text-slate-900 mb-6">滞销款销售跟进与渠道消化跟踪</h2>
       <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="loginAccount">登录账号</label>
-      <select id="loginAccount" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option value="10211">10211 · 管理账号</option><option value="14599">14599 · 业务账号</option><option value="095男鞋">095男鞋 · 男鞋业务</option></select>
+      <select id="loginAccount" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option value="14599" selected>14599 · 业务账号</option><option value="10211">10211 · 管理账号</option><option value="095男鞋">095男鞋 · 男鞋业务</option></select>
       <label class="block text-xs font-semibold text-slate-600 mt-4 mb-1.5" for="loginPassword">登录密码</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入登录密码" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" onkeydown="if(event.key==='Enter')loginSystem()">
       <p id="loginError" class="hidden text-xs text-red-600 mt-2">账号或密码不正确，请重新输入。</p>
       <button onclick="loginSystem()" class="w-full mt-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white py-3 text-sm font-bold shadow-md shadow-blue-100 transition">安全登录</button>
@@ -103,26 +139,57 @@
     </div>
   </div>
 
-  <!-- 顶部导航条 -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap justify-between items-center gap-4">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <!-- 顶部导航条：左侧标题与身份左对齐，中间放置4大业务看板，右侧放置操作按钮 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs print-hide">
+    <div class="w-full max-w-[1780px] mx-auto px-3 sm:px-5 lg:px-6 py-2.5 flex flex-wrap justify-between items-center gap-3">
+      <!-- 左侧：图标 + 标题 + 当前身份 (左对齐) -->
+      <div class="flex items-center space-x-3 text-left">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-indigo-100 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
         </div>
-        <div>
-          <h1 class="text-lg font-bold text-slate-900 leading-tight">滞销款销售跟进与渠道消化跟踪</h1>
-          <p class="text-xs text-slate-500">以单品资料货号为基准 · 周期：2026.09.01 - 2027.02.01 (按总库存拆解目标)</p>
+        <div class="space-y-0.5">
+          <div class="flex items-center space-x-2.5 flex-wrap">
+            <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">滞销款销售跟进与渠道消化跟踪</h1>
+            <span id="currentIdentity" class="text-xs font-semibold text-slate-700 bg-sky-50 border border-sky-200/80 rounded-lg px-2.5 py-0.5">当前身份：14599 · 业务账号</span>
+          </div>
+          <p class="text-[11px] text-slate-500">以单品资料货号为基准 · 周期：2026.09.01 - 2027.02.01 (按总库存拆解目标)</p>
         </div>
       </div>
 
-      <!-- 当前身份与操作按钮群 -->
-      <div class="flex items-center gap-2.5 flex-wrap">
-        <span id="currentIdentity" class="text-xs font-semibold text-slate-600 bg-sky-50 border border-sky-100 rounded-lg px-3 py-2">未登录</span>
-        <button onclick="logoutSystem()" class="inline-flex items-center px-3 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">退出登录</button>
-        <label class="cursor-pointer inline-flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-2xs">
+      <!-- 顶端居中：4大业务看板切换导航 -->
+      <div class="bg-slate-100 p-1 rounded-xl flex items-center gap-1 text-xs font-semibold">
+        <button onclick="switchTab('tableTab')" id="tabBtnTable" class="px-3 py-1.5 rounded-lg bg-white text-indigo-700 shadow-xs flex items-center space-x-1.5 transition-all text-xs font-bold">
+          <span>📊</span><span>滞销主表</span>
+        </button>
+        <button onclick="switchTab('weeklyTab')" id="tabBtnWeekly" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition-all text-xs">
+          <span>🎯</span><span>周去化节奏</span>
+        </button>
+        <button onclick="switchTab('strategyTab')" id="tabBtnStrategy" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition-all text-xs">
+          <span>⚠️</span><span>预警画廊</span>
+        </button>
+        <button onclick="switchTab('storeMatrixTab')" id="tabBtnStoreMatrix" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition-all text-xs">
+          <span>▦</span><span>店铺周矩阵</span>
+        </button>
+      </div>
+
+      <!-- 右侧：操作按钮群 -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="logoutSystem()" class="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">退出登录</button>
+        <button onclick="exportToPDF()" id="exportPdfBtn" title="导出当前筛选结果为横向A4 PDF" class="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors shadow-2xs">
+          <svg class="w-4 h-4 mr-1.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span id="exportPdfBtnText">导出为PDF(横向)</span>
+        </button>
+        <button onclick="window.print()" title="打印横向 A4 报表" class="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs">
+          <svg class="w-4 h-4 mr-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+          </svg>
+          打印横向A4
+        </button>
+        <label class="cursor-pointer inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-2xs">
           <svg class="w-4 h-4 mr-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
           </svg>
@@ -130,14 +197,14 @@
           <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
         </label>
         
-        <button id="exportBtn" onclick="exportToExcelWithImages()" class="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200">
+        <button id="exportBtn" onclick="exportToExcelWithImages()" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200">
           <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
           <span id="exportBtnText">导出带图Excel表格</span>
         </button>
 
-        <button onclick="resetToSampleData()" title="重置示例数据" class="p-2 text-slate-500 hover:text-slate-800 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+        <button onclick="resetToSampleData()" title="重置示例数据" class="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -146,14 +213,14 @@
     </div>
   </header>
 
-  <!-- 主容器 -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 w-full grow space-y-4">
+  <!-- 主容器 (全景横向 A4 宽屏画布) -->
+  <main class="w-full max-w-[1780px] mx-auto px-3 sm:px-5 lg:px-6 py-3.5 grow space-y-3 print:px-0 print:py-0">
 
-    <!-- 顶部 KPI 综合栏 -->
-    <div class="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-center">
+    <!-- 顶部水平横向综合指挥中枢 (周期监控 + 4项核心KPI舒展铺开) -->
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs">
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-center">
         <!-- 销售周期监控与进度（占 4 列） -->
-        <div class="lg:col-span-4 pr-0 lg:pr-3 lg:border-r border-slate-100 flex flex-col justify-between space-y-1.5">
+        <div class="xl:col-span-4 pr-0 xl:pr-3 xl:border-r border-slate-100 flex flex-col justify-between space-y-1.5">
           <div class="flex items-center justify-between text-xs">
             <div class="flex items-center space-x-1.5 font-bold text-slate-800">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
@@ -177,8 +244,8 @@
         </div>
 
         <!-- 4 项核心数据指标（占 8 列） -->
-        <div class="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          <div class="px-3 py-1.5 rounded-xl bg-slate-50/80 border border-slate-100">
+        <div class="xl:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div class="px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-100">
             <div class="text-[11px] text-slate-400 font-medium">监控单品款数</div>
             <div class="flex items-baseline space-x-1 mt-0.5">
               <span id="kpiSkuCount" class="text-lg font-black text-slate-900 leading-tight">0</span>
@@ -187,7 +254,7 @@
             <div class="text-[10px] text-slate-400 truncate">单品资料为基准</div>
           </div>
 
-          <div class="px-3 py-1.5 rounded-xl bg-blue-50/50 border border-blue-100/70">
+          <div class="px-3 py-2 rounded-xl bg-blue-50/50 border border-blue-100/70">
             <div class="text-[11px] text-blue-600/80 font-medium">累计销量 (9-2月)</div>
             <div class="flex items-baseline space-x-1 mt-0.5">
               <span id="kpiTotalSales" class="text-lg font-black text-blue-600 leading-tight">0</span>
@@ -196,8 +263,8 @@
             <div id="kpiTargetRate" class="text-[10px] text-blue-600 font-medium truncate">认领达成: 0%</div>
           </div>
 
-          <div class="px-3 py-1.5 rounded-xl bg-amber-50/50 border border-amber-100/70">
-            <div class="text-[11px] text-amber-700/80 font-medium">待清总库存存量</div>
+          <div class="px-3 py-2 rounded-xl bg-amber-50/50 border border-amber-100/70">
+            <div class="text-[11px] text-amber-700/80 font-medium">待清总库存</div>
             <div class="flex items-baseline space-x-1 mt-0.5">
               <span id="kpiTotalStock" class="text-lg font-black text-amber-600 leading-tight">0</span>
               <span class="text-[11px] text-amber-500">件</span>
@@ -205,127 +272,119 @@
             <div id="kpiStockSplit" class="text-[10px] text-amber-700/80 truncate">在仓: 0 | 在途: 0</div>
           </div>
 
-          <div class="px-3 py-1.5 rounded-xl bg-emerald-50/50 border border-emerald-100/70">
+          <div class="px-3 py-2 rounded-xl bg-emerald-50/50 border border-emerald-100/70">
             <div class="text-[11px] text-emerald-700/80 font-medium">综合售罄率</div>
             <div class="flex items-baseline space-x-1 mt-0.5">
               <span id="kpiSellThrough" class="text-lg font-black text-emerald-600 leading-tight">0.0%</span>
             </div>
-            <div class="text-[10px] text-emerald-600/70 truncate">销 / (总库存 + 销)</div>
+            <div class="text-[10px] text-emerald-600/70 truncate">销/(总库存+销)</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 筛选器与控制工具条 -->
-    <div class="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs space-y-3.5">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <!-- 渠道归类项目组 -->
-        <div class="flex items-start gap-2 min-w-[280px] flex-1">
-          <span class="text-xs font-semibold text-slate-700 shrink-0 pt-2">渠道归类项目组:</span>
-          <div class="border border-slate-200 rounded-xl bg-slate-50 p-2 flex-1">
-            <div class="flex flex-wrap gap-x-3 gap-y-2 text-xs" id="channelGroupCheckboxes">
-              <label class="inline-flex items-center gap-1 font-semibold"><input type="checkbox" value="ALL" checked onchange="handleChannelGroupChange(this)">全部渠道</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="其他渠道" onchange="handleChannelGroupChange(this)">其他渠道</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="跨境" onchange="handleChannelGroupChange(this)">跨境</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="好衣库/爱库存" onchange="handleChannelGroupChange(this)">好衣库/爱库存</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="抖音" onchange="handleChannelGroupChange(this)">抖音</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="京东" onchange="handleChannelGroupChange(this)">京东</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="拼多多" onchange="handleChannelGroupChange(this)">拼多多</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="天猫集团" onchange="handleChannelGroupChange(this)">天猫集团</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="天猫官方" onchange="handleChannelGroupChange(this)">天猫官方</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="天猫男鞋" onchange="handleChannelGroupChange(this)">天猫男鞋</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="唯品会" onchange="handleChannelGroupChange(this)">唯品会</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="得物" onchange="handleChannelGroupChange(this)">得物</label>
-              <label class="inline-flex items-center gap-1"><input type="checkbox" value="新零售" onchange="handleChannelGroupChange(this)">新零售</label>
-            </div>
-            <p id="channelGroupSelectionHint" class="text-[10px] text-slate-500 mt-2">当前：全部渠道</p>
+    <!-- 水平横向控制与筛选工具条 -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs space-y-2.5 print-hide">
+      <!-- 顶排：渠道归类项目组水平展开与筛选统计 (已移除好衣库/爱库存) -->
+      <div class="flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="text-xs font-bold text-slate-700 shrink-0">渠道归类:</span>
+          <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 grow" id="channelGroupCheckboxes">
+            <label class="inline-flex items-center gap-1 font-bold text-indigo-700"><input type="checkbox" value="ALL" checked onchange="handleChannelGroupChange(this)">全部渠道</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="其他渠道" onchange="handleChannelGroupChange(this)">其他渠道</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="跨境" onchange="handleChannelGroupChange(this)">跨境</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="抖音" onchange="handleChannelGroupChange(this)">抖音</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="京东" onchange="handleChannelGroupChange(this)">京东</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="拼多多" onchange="handleChannelGroupChange(this)">拼多多</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="天猫集团" onchange="handleChannelGroupChange(this)">天猫集团</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="天猫官方" onchange="handleChannelGroupChange(this)">天猫官方</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="天猫男鞋" onchange="handleChannelGroupChange(this)">天猫男鞋</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="唯品会" onchange="handleChannelGroupChange(this)">唯品会</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="得物" onchange="handleChannelGroupChange(this)">得物</label>
+            <label class="inline-flex items-center gap-1 text-slate-700"><input type="checkbox" value="新零售" onchange="handleChannelGroupChange(this)">新零售</label>
           </div>
         </div>
+        <p id="channelGroupSelectionHint" class="text-[11px] text-slate-500 shrink-0 font-medium bg-slate-100 px-2.5 py-1 rounded-md">当前：全部渠道</p>
+      </div>
 
+      <!-- 底排：流水日期、单品多维属性筛选、排序与显示模式一体化水平横向对齐 -->
+      <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100 text-xs">
         <!-- 销售日期筛选器 -->
-        <div class="flex items-center flex-wrap gap-2 text-xs">
-          <span class="font-semibold text-slate-700 shrink-0">销售流水日期筛选:</span>
-          <input type="date" id="dateFilterStart" value="2026-09-01" class="border border-slate-300 rounded-md px-2 py-1 text-slate-700">
+        <div class="flex items-center flex-wrap gap-1.5">
+          <span class="font-bold text-slate-700 shrink-0">流水日期:</span>
+          <input type="date" id="dateFilterStart" value="2026-09-01" class="border border-slate-300 rounded px-1.5 py-1 text-slate-700 text-xs">
           <span class="text-slate-400">至</span>
-          <input type="date" id="dateFilterEnd" value="2027-02-01" class="border border-slate-300 rounded-md px-2 py-1 text-slate-700">
-          
-          <button onclick="setDateRange('ALL')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-medium">全周期</button>
-          <button onclick="setDateRange('LAST_30')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-medium">近30天</button>
-          <button onclick="setDateRange('LAST_7')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-medium">近7天</button>
+          <input type="date" id="dateFilterEnd" value="2027-02-01" class="border border-slate-300 rounded px-1.5 py-1 text-slate-700 text-xs">
+          <button onclick="setDateRange('ALL')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[11px] font-medium">全周期</button>
+          <button onclick="setDateRange('LAST_30')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[11px] font-medium">近30天</button>
+          <button onclick="setDateRange('LAST_7')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[11px] font-medium">近7天</button>
         </div>
 
-        <!-- 渠道数值显示模式 -->
-        <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg text-xs font-medium">
-          <button onclick="setDisplayMode('COMBINED')" id="modeBtnCombined" class="px-2.5 py-1 rounded-md bg-white text-indigo-600 shadow-2xs font-semibold">销量 / 认领目标</button>
-          <button onclick="setDisplayMode('SALES')" id="modeBtnSales" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900">仅销量</button>
-          <button onclick="setDisplayMode('TARGET')" id="modeBtnTarget" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900">仅认领目标</button>
-          <button onclick="setDisplayMode('ACHIEVEMENT')" id="modeBtnAchievement" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900">达成率%</button>
+        <!-- 搜索与多维度下拉 -->
+        <div class="flex items-center flex-wrap gap-2">
+          <div class="relative w-44">
+            <input type="text" id="skuSearchInput" placeholder="搜索货号..." oninput="onSearchInput()"
+              class="w-full pl-6 pr-2 py-1 border border-slate-300 rounded-lg text-xs focus:outline-indigo-500">
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-1.5 top-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+
+          <!-- 品类复选框多选下拉 -->
+          <div class="relative inline-block filter-multiselect" id="categoryMultiContainer">
+            <button type="button" onclick="toggleFilterMenu('categoryMenu')" class="border border-slate-300 rounded-lg px-2.5 py-1 text-slate-700 text-xs bg-white hover:bg-slate-50 flex items-center gap-1 shadow-2xs font-medium">
+              <span id="categoryLabelText">品类: 全部</span>
+              <svg class="w-3 h-3 text-slate-400 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="categoryMenu" class="hidden absolute left-0 top-full mt-1.5 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 space-y-1 max-h-56 overflow-y-auto"></div>
+          </div>
+
+          <!-- 单/绒复选框多选下拉 -->
+          <div class="relative inline-block filter-multiselect" id="fleeceMultiContainer">
+            <button type="button" onclick="toggleFilterMenu('fleeceMenu')" class="border border-slate-300 rounded-lg px-2.5 py-1 text-slate-700 text-xs bg-white hover:bg-slate-50 flex items-center gap-1 shadow-2xs font-medium">
+              <span id="fleeceLabelText">单/绒: 全部</span>
+              <svg class="w-3 h-3 text-slate-400 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="fleeceMenu" class="hidden absolute left-0 top-full mt-1.5 w-36 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 space-y-1"></div>
+          </div>
+
+          <!-- 季节复选框多选下拉 -->
+          <div class="relative inline-block filter-multiselect" id="seasonMultiContainer">
+            <button type="button" onclick="toggleFilterMenu('seasonMenu')" class="border border-slate-300 rounded-lg px-2.5 py-1 text-slate-700 text-xs bg-white hover:bg-slate-50 flex items-center gap-1 shadow-2xs font-medium">
+              <span id="seasonLabelText">季节: 全部</span>
+              <svg class="w-3 h-3 text-slate-400 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="seasonMenu" class="hidden absolute left-0 top-full mt-1.5 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 space-y-1 max-h-56 overflow-y-auto"></div>
+          </div>
+
+          <select id="mainSortPreset" onchange="applyMainSortPreset(this.value)" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white text-slate-700 font-medium">
+            <option value="SELL_THROUGH_ASC">售罄率从低到高</option>
+            <option value="SELL_THROUGH_DESC">售罄率从高到低</option>
+            <option value="STOCK_DESC">总库存从大到小</option>
+            <option value="SALES_7_DESC">近7天销最好</option>
+            <option value="SALES_7_ASC">近7天销最弱</option>
+            <option value="SALES_30_DESC">近30天销最好</option>
+            <option value="SALES_30_ASC">近30天销最弱</option>
+          </select>
         </div>
-      </div>
 
-      <!-- 搜索与属性筛选 -->
-      <div class="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100 text-xs">
-        <div class="relative w-56">
-          <input type="text" id="skuSearchInput" placeholder="输入货号快速搜索..." oninput="renderAll()"
-            class="w-full pl-7 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-indigo-500">
-          <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-        </div>
-
-        <select id="categoryFilter" onchange="renderAll()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700">
-          <option value="ALL">全部品类</option>
-        </select>
-
-        <select id="fleeceFilter" onchange="renderAll()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700">
-          <option value="ALL">全部 (单里/绒里)</option>
-          <option value="单里">单里</option>
-          <option value="绒里">绒里</option>
-        </select>
-
-        <select id="seasonFilter" onchange="renderAll()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700">
-          <option value="ALL">全部季节</option>
-        </select>
-        <div class="flex items-center gap-1.5"><span class="text-xs font-semibold text-slate-600">主表排序:</span><select id="mainSortPreset" onchange="applyMainSortPreset(this.value)" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"><option value="SELL_THROUGH_ASC">售罄率从低到高</option><option value="SELL_THROUGH_DESC">售罄率从高到低</option><option value="STOCK_DESC">总库存从大到小</option><option value="SALES_7_DESC">近7天销量最好</option><option value="SALES_7_ASC">近7天销量最弱</option><option value="SALES_30_DESC">近30天销量最好</option><option value="SALES_30_ASC">近30天销量最弱</option></select></div>
-
-        <div class="ml-auto text-slate-400 text-[11px] flex items-center space-x-2">
-          <span>* 提示：点击图片查看渠道认领目标与周销详情；货号与图片列已横向冻结固定</span>
-          <span class="text-slate-300">|</span>
-          <span>筛选出 <span id="filteredCount" class="font-bold text-slate-800">0</span> 款商品</span>
+        <!-- 渠道数值显示模式与款数 -->
+        <div class="flex items-center space-x-2">
+          <div class="flex items-center space-x-0.5 bg-slate-100 p-0.5 rounded-lg text-xs font-medium">
+            <button onclick="setDisplayMode('COMBINED')" id="modeBtnCombined" class="px-2 py-1 rounded bg-white text-indigo-600 shadow-2xs font-semibold text-[11px]">销量/认领</button>
+            <button onclick="setDisplayMode('SALES')" id="modeBtnSales" class="px-2 py-1 rounded text-slate-600 hover:text-slate-900 text-[11px]">仅销量</button>
+            <button onclick="setDisplayMode('TARGET')" id="modeBtnTarget" class="px-2 py-1 rounded text-slate-600 hover:text-slate-900 text-[11px]">仅目标</button>
+            <button onclick="setDisplayMode('ACHIEVEMENT')" id="modeBtnAchievement" class="px-2 py-1 rounded text-slate-600 hover:text-slate-900 text-[11px]">达成率%</button>
+          </div>
+          <span class="text-slate-400 text-[11px]">共 <strong id="filteredCount" class="text-slate-800">0</strong> 款</span>
         </div>
       </div>
     </div>
 
-    <!-- 业务看板切换导航 -->
-    <div class="bg-slate-200/70 p-1 rounded-2xl flex flex-wrap gap-1 text-xs font-semibold">
-      <button onclick="switchTab('tableTab')" id="tabBtnTable" class="px-4 py-2 rounded-xl bg-white text-indigo-700 shadow-xs flex items-center space-x-2 transition-all">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-        </svg>
-        <span>截图同款·滞销销售与渠道目标主表</span>
-      </button>
-
-      <button onclick="switchTab('weeklyTab')" id="tabBtnWeekly" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 flex items-center space-x-2 transition-all">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-        </svg>
-        <span>按总库存拆解每周销售目标与节奏</span>
-      </button>
-
-      <button onclick="switchTab('strategyTab')" id="tabBtnStrategy" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 flex items-center space-x-2 transition-all">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-        </svg>
-        <span>低售罄率大图预警与清仓策略看板</span>
-      </button>
-    
-      <button onclick="switchTab('storeMatrixTab')" id="tabBtnStoreMatrix" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 flex items-center space-x-2 transition-all"><span>▦</span><span>店铺周销量矩阵与认领目标达成</span></button>
-    </div>
-
-    <!-- TAB 1: 截图同款报表表格 -->
+    <!-- TAB 1: 截图同款报表表格 (横向宽屏自适应展现) -->
     <section id="tableTab" class="block space-y-3">
       <div class="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-        <div class="overflow-x-auto max-h-[660px] relative">
+        <div class="overflow-x-auto max-h-[calc(100vh-250px)] min-h-[500px] relative">
           <table class="w-full text-center border-collapse text-xs whitespace-nowrap" id="mainFollowTable">
             <thead class="select-none font-bold">
               <!-- 第1行表头 -->
@@ -340,6 +399,7 @@
                 </th>
               </tr>
               <!-- 第2行表头 -->
+              <!-- 第2行表头 (已移除好衣库/爱库存) -->
               <tr class="table-sticky-row2 border-b border-slate-300 text-slate-700 bg-white shadow-xs">
                 <th class="th-sticky-corner-sku-2 py-2.5 px-3 border-r border-slate-200">货号</th>
                 <th class="th-sticky-corner-img-2 py-2.5 px-4 border-r border-slate-300">图片</th>
@@ -361,13 +421,44 @@
                 <th class="py-2.5 px-3 border-r border-slate-200 bg-white font-semibold">新零售</th>
                 <th class="py-2.5 px-3 border-r border-slate-200 bg-white font-semibold">跨境</th>
                 <th class="py-2.5 px-3 border-r border-slate-200 bg-white font-semibold">其他渠道</th>
-                <th class="py-2.5 px-3 border-r border-slate-200 bg-white font-semibold">好衣库/爱库存</th>
                 <th class="py-2.5 px-3 bg-white font-extrabold text-indigo-900 border-r border-slate-300">总计</th>
               </tr>
             </thead>
             <tbody id="tableBody" class="divide-y divide-slate-200 text-slate-700 font-medium"></tbody>
             <tfoot id="tableFoot" class="bg-slate-50 font-bold border-t-2 border-slate-300 text-slate-900"></tfoot>
           </table>
+        </div>
+
+        <!-- 主表分页控制条 -->
+        <div class="bg-slate-50 border-t border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 print-hide">
+          <div class="flex items-center space-x-2">
+            <span>显示第 <strong id="pageStartIdx" class="text-slate-900 font-bold">1</strong> 至 <strong id="pageEndIdx" class="text-slate-900 font-bold">15</strong> 条</span>
+            <span class="text-slate-300">|</span>
+            <span>筛选共 <strong id="pageTotalCount" class="text-indigo-600 font-black">0</strong> 款</span>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-1.5">
+              <span>每页显示:</span>
+              <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="border border-slate-300 rounded px-2 py-1 bg-white font-medium text-slate-700 text-xs">
+                <option value="15" selected>15 条/页</option>
+                <option value="30">30 条/页</option>
+                <option value="50">50 条/页</option>
+                <option value="100">100 条/页</option>
+                <option value="ALL">全部显示</option>
+              </select>
+            </div>
+
+            <div class="flex items-center space-x-1" id="paginationBtnGroup">
+              <button onclick="goToPage(1)" id="btnPageFirst" class="px-2 py-1 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none font-bold">«</button>
+              <button onclick="goToPage(state.currentPage - 1)" id="btnPagePrev" class="px-2.5 py-1 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none font-bold">‹</button>
+              <span class="px-2.5 font-bold text-slate-800">
+                <span id="currentPageNum" class="text-indigo-600 font-black">1</span> / <span id="totalPageNum">1</span>
+              </span>
+              <button onclick="goToPage(state.currentPage + 1)" id="btnPageNext" class="px-2.5 py-1 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none font-bold">›</button>
+              <button onclick="goToPage(state.totalPages)" id="btnPageLast" class="px-2 py-1 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none font-bold">»</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="text-xs text-slate-500 flex justify-between items-center px-1">
@@ -376,67 +467,82 @@
       </div>
     </section>
 
-    <!-- TAB 2: 按「总库存」拆解每周销售目标与节奏 -->
-    <section id="weeklyTab" class="hidden space-y-5">
-      <div class="bg-indigo-50 border border-indigo-200/80 rounded-2xl p-4 flex items-center justify-between text-xs text-indigo-900">
-        <div class="flex items-center space-x-2.5">
-          <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">🎯</span>
+    <!-- TAB 2: 按「总库存」拆解每周销售目标与节奏 (三行独立全宽布局) -->
+    <section id="weeklyTab" class="hidden space-y-4">
+      <!-- 顶部提示与节奏模型选择 -->
+      <div class="bg-indigo-50 border border-indigo-200/80 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between text-xs text-indigo-900 gap-2">
+        <div class="flex items-center space-x-2">
+          <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">🎯</span>
           <div>
             <span class="font-bold">按总库存拆解目标逻辑：</span>
-            <span>当前筛选款式待消化总库存为 <strong class="text-base text-indigo-700 font-black" id="weeklyBaseTotalStock">0</strong> 件。系统以此总库存为清仓销售总目标，拆分至 2026.09.01 - 2027.02.01 全周期 22 周中进行动态周度考核。</span>
+            <span>当前筛选款式待消化总库存为 <strong class="text-sm text-indigo-700 font-black" id="weeklyBaseTotalStock">0</strong> 件，以此为清仓销售总目标拆分至全周期 22 周进行动态周度考核。</span>
           </div>
         </div>
         <div class="flex items-center space-x-2">
-          <span class="font-semibold text-slate-600">节奏模型:</span>
-          <select id="pacingModelSelect" onchange="renderWeeklyModule()" class="text-xs border border-indigo-300 rounded-lg px-2.5 py-1 bg-white text-indigo-950 font-medium">
+          <span class="font-semibold text-slate-600 text-xs">节奏模型:</span>
+          <select id="pacingModelSelect" onchange="renderWeeklyModule()" class="text-xs border border-indigo-300 rounded-lg px-2 py-1 bg-white text-indigo-950 font-medium">
             <option value="SEASONAL">电商秋冬波峰节奏 (双11/双12/年货节权重)</option>
             <option value="LINEAR">平摊拆解 (每周平均消减 1/22)</option>
           </select>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+      <!-- 第一行：周度 4 项核心 KPI 卡片 (独立全宽一行铺开) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
           <div class="text-xs text-slate-500 font-semibold mb-1">销售周期天数进度</div>
           <div class="text-2xl font-black text-indigo-600" id="weeklyTimeProgressText">37.0%</div>
-          <p class="text-xs text-slate-400 mt-1">按导入销售表最新日期动态统计</p>
+          <p class="text-xs text-slate-400 mt-1">按最新流水日期统计</p>
         </div>
-
-        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
           <div class="text-xs text-slate-500 font-semibold mb-1">总库存去化达成率</div>
           <div class="text-2xl font-black text-blue-600" id="weeklySalesProgressText">0.0%</div>
-          <p class="text-xs text-slate-400 mt-1" id="weeklySalesPacingBadge">累计销量 / (初始总库存)</p>
+          <p class="text-xs text-slate-400 mt-1" id="weeklySalesPacingBadge">累计销量 / 初始总库存</p>
         </div>
-
-        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
           <div class="text-xs text-slate-500 font-semibold mb-1">当前周应去库目标</div>
           <div class="text-2xl font-black text-amber-600" id="currentWeekTargetText">0</div>
-          <p class="text-xs text-slate-400 mt-1" id="currentWeekActualText">本周实际销售: 0 件</p>
+          <p class="text-xs text-slate-400 mt-1" id="currentWeekActualText">本周已销售: 0 件</p>
         </div>
-
-        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
           <div class="text-xs text-slate-500 font-semibold mb-1">剩余总库存消化预估</div>
           <div class="text-2xl font-black text-emerald-600" id="remainingWeeksEstText">- 周</div>
           <p class="text-xs text-slate-400 mt-1" id="stockVelocityText">按近30天日均速度测算</p>
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-        <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
-          <span>每周销售情况 vs 按总库存拆解周目标 vs 累计去库达成走势（截止导入销售最新日期）</span>
-          <span class="text-xs font-normal text-slate-400">柱状：单周销量/总库存拆分目标 | 折线：累计去库率</span>
-        </h3>
-        <div class="h-72 w-full">
+      <!-- 第二行：每周销售 vs 总库存拆分目标 vs 周达成率走势 (子弹图，已移除圆环仪表盘) -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-3">
+        <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-600 mr-2"></span>
+              每周销售 vs 周去库目标 (子弹图) & 周达成率走势
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              浅色宽背景柱：按总库存拆解周目标 | 内部深色细柱：实际完成销售 (达成标绿/未达成标蓝) | 折线：单周达成率 (实际周销/周目标)
+            </p>
+          </div>
+          <div class="flex items-center space-x-3 text-xs">
+            <span class="inline-flex items-center text-slate-600"><span class="w-3.5 h-3.5 bg-slate-200 rounded-xs mr-1 border border-slate-300"></span>周目标(标尺底)</span>
+            <span class="inline-flex items-center text-blue-600 font-medium"><span class="w-2 h-3.5 bg-blue-600 rounded-xs mr-1"></span>实际销售(未达标)</span>
+            <span class="inline-flex items-center text-emerald-600 font-medium"><span class="w-2 h-3.5 bg-emerald-500 rounded-xs mr-1"></span>实际销售(已达标)</span>
+            <span class="inline-flex items-center text-amber-600 font-medium"><span class="w-3 h-0.5 bg-amber-500 mr-1"></span>单周达成率(%)</span>
+          </div>
+        </div>
+        <!-- 子弹图 Canvas -->
+        <div class="h-80 w-full mt-1">
           <canvas id="weeklyChart"></canvas>
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-        <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">周度库存消化目标与销量追踪明细（按最新销售日期动态展开）</h4>
-          <span class="text-xs text-slate-500">统计截止：导入销售表最新日期</span>
+      <!-- 第三行：周度去库目标与销量明细 (22周横向展开) (独立全宽一行) -->
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center text-xs">
+          <h4 class="font-bold text-slate-800 uppercase tracking-wider">周度库存消化目标与销量追踪明细（按最新销售日期动态展开 · 全宽22周）</h4>
+          <span class="text-slate-500 font-medium">统计截止：导入销售表最新日期</span>
         </div>
-        <div class="overflow-x-auto max-h-[460px]">
+        <div class="overflow-x-auto max-h-[520px]">
           <table class="w-full text-center border-collapse text-xs whitespace-nowrap">
             <thead class="table-sticky-row1 bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
               <tr>
@@ -450,7 +556,7 @@
                 <th class="py-2.5 px-3">累计应去目标</th>
                 <th class="py-2.5 px-3 text-slate-800 font-bold">累计实际销量</th>
                 <th class="py-2.5 px-3 font-extrabold text-emerald-700">累计去库存达成率</th>
-                <th class="py-2.5 px-3 text-slate-500">预测期末剩余库存</th>
+                <th class="py-2.5 px-3 text-slate-500">期末剩余库存</th>
               </tr>
             </thead>
             <tbody id="weeklyTableBody" class="divide-y divide-slate-200 font-medium"></tbody>
@@ -459,16 +565,16 @@
       </div>
     </section>
 
-    <!-- TAB 3: 滞销预警与清仓策略建议 -->
-    <section id="strategyTab" class="hidden space-y-5">
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-        <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+    <!-- TAB 3: 滞销预警与清仓策略建议 (全景横向卡片画廊) -->
+    <section id="strategyTab" class="hidden space-y-4">
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div>
-            <h3 class="text-base font-bold text-slate-900 flex items-center">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center">
               <span class="w-2.5 h-2.5 rounded-full bg-red-500 mr-2 animate-pulse"></span>
               滞销风险单品大图诊断画廊 (低售罄率重点款式)
             </h3>
-            <p class="text-xs text-slate-500 mt-1">
+            <p class="text-xs text-slate-500 mt-0.5">
               以大图形式直观查看售罄率显著落后于时间进度 (<span id="alertTimePacing" class="font-bold text-indigo-600">35.7%</span>) 的高库存款式，并提供针对性清仓通道建议。
             </p>
           </div>
@@ -486,34 +592,54 @@
           </div>
         </div>
 
-        <div id="slowMovingCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5"></div>
+        <div id="slowMovingCardGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4"></div>
       </div>
     </section>
 
-    <!-- TAB 5: 店铺周销量矩阵与认领目标达成 -->
-    <section id="storeMatrixTab" class="hidden space-y-5">
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-        <div class="flex flex-wrap justify-between items-center gap-3 mb-4"><div><h3 class="text-base font-bold text-slate-900">店铺周销量矩阵与认领目标达成</h3><p class="text-xs text-slate-500 mt-1">按店铺汇总每周实际销量、目标认领与完成率。</p></div><button onclick="exportStoreWeekMatrixCSV()" class="text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">导出 CSV</button></div>
-        <div class="overflow-auto max-h-[620px]"><table class="min-w-full text-xs text-center border-collapse"><thead id="storeWeekMatrixHead" class="sticky top-0 bg-slate-50 z-10"></thead><tbody id="storeWeekMatrixBody"></tbody><tfoot id="storeWeekMatrixFoot" class="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-900 sticky bottom-0 z-10 shadow-xs"></tfoot></table></div>
+    <!-- TAB 5: 店铺周销量矩阵与认领目标达成 (横向全屏矩阵展开) -->
+    <section id="storeMatrixTab" class="hidden space-y-4">
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">店铺周销量矩阵与认领目标达成</h3>
+            <p class="text-xs text-slate-500 mt-0.5">按店铺汇总每周实际销量、目标认领与完成率。</p>
+          </div>
+          <button onclick="exportStoreWeekMatrixCSV()" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">导出 CSV</button>
+        </div>
+        <div class="overflow-auto max-h-[620px]">
+          <table class="min-w-full text-xs text-center border-collapse">
+            <thead id="storeWeekMatrixHead" class="sticky top-0 bg-slate-50 z-10"></thead>
+            <tbody id="storeWeekMatrixBody"></tbody>
+            <tfoot id="storeWeekMatrixFoot" class="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-900 sticky bottom-0 z-10 shadow-xs"></tfoot>
+          </table>
+        </div>
       </div>
     </section>
 
   </main>
 
-  <!-- 款式详情抽屉/模态框 -->
-  <div id="detailModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-y-auto p-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
-      <button onclick="closeModal()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors z-20">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
+  <!-- 款式详情抽屉/模态框 (水平横向 A4 宽屏版) -->
+  <div id="detailModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-3xl max-w-[1380px] w-[96vw] max-h-[94vh] overflow-y-auto p-5 sm:p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+      <!-- 弹窗顶端快捷操作工具栏 -->
+      <div class="absolute top-4 right-4 flex items-center space-x-1.5 z-20 print-hide">
+        <button onclick="window.print()" title="打印横向 A4 报告" class="p-2 text-slate-400 hover:text-indigo-600 rounded-full hover:bg-slate-100 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+          </svg>
+        </button>
+        <button onclick="closeModal()" class="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
       <div id="modalContent"></div>
     </div>
   </div>
 
   <!-- 纯净大图全屏查看 Modal -->
-  <div id="pureImageModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-60 hidden flex items-center justify-center p-4" onclick="closePureImageModal()">
+  <div id="pureImageModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-60 hidden flex items-center justify-center p-4 print-hide" onclick="closePureImageModal()">
     <div class="relative max-w-3xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
       <button onclick="closePureImageModal()" class="absolute -top-3 -right-3 w-8 h-8 bg-white text-slate-800 rounded-full shadow-2xl flex items-center justify-center hover:bg-slate-200 font-bold text-sm transition-transform hover:scale-105 z-10">
         ✕
@@ -526,14 +652,15 @@
   </div>
 
   <!-- 轻量提示 Toast -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs font-medium shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none flex items-center space-x-2">
+  <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs font-medium shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none flex items-center space-x-2 print-hide">
     <span id="toastMsg">通知</span>
   </div>
 
   <script>
+    // 渠道列表已剔除「好衣库/爱库存」
     const CHANNELS = [
       '拼多多', '唯品会', '抖音', '天猫集团', '天猫男鞋',
-      '天猫官方', '得物', '京东', '新零售', '跨境', '其他渠道', '好衣库/爱库存'
+      '天猫官方', '得物', '京东', '新零售', '跨境', '其他渠道'
     ];
 
     const CYCLE_START = new Date('2026-09-01T00:00:00');
@@ -545,15 +672,18 @@
       filterStart: new Date('2026-09-01T00:00:00'),
       filterEnd: new Date('2027-02-01T23:59:59'),
       channelGroup: ['ALL'],
-      category: 'ALL',
-      fleece: 'ALL',
-      season: 'ALL',
+      categories: ['ALL'],
+      fleeces: ['ALL'],
+      seasons: ['ALL'],
       searchSku: '',
       displayMode: 'COMBINED',
       sortCol: 'totalSales',
       sortAsc: false,
       pacingModel: 'SEASONAL',
       activeTab: 'tableTab',
+      currentPage: 1,
+      pageSize: 15,
+      totalPages: 1,
       items: [],
       inventory: {},
       targets: {},
@@ -589,11 +719,11 @@
         'A260901': { '拼多多': 300, '抖音': 250, '天猫集团': 500 },
         'A260902': { '天猫集团': 1700, '唯品会': 120 },
         'B260903': { '京东': 200, '天猫官方': 150 },
-        'B260904': { '拼多多': 400, '好衣库/爱库存': 300 },
+        'B260904': { '拼多多': 400, '其他渠道': 300 },
         'C260905': { '拼多多': 150, '抖音': 100, '得物': 80 },
         'C260906': { '天猫集团': 1200, '唯品会': 500 },
         'D260907': { '天猫官方': 300, '新零售': 150 },
-        'D260908': { '天猫集团': 1800, '好衣库/爱库存': 300 }
+        'D260908': { '天猫集团': 1800, '拼多多': 300 }
       };
 
       const mockSalesLogs = [];
@@ -654,7 +784,155 @@
       state.channelGroup = all.checked ? ['ALL'] : specific.filter(x => x.checked).map(x => x.value);
       const hint = document.getElementById('channelGroupSelectionHint');
       if (hint) hint.textContent = '当前：' + (state.channelGroup.includes('ALL') ? '全部渠道' : state.channelGroup.join('、'));
+      state.currentPage = 1;
       renderAll();
+    }
+
+    // 核心过滤方法（主表、导出PDF、导出Excel、图表及策略矩阵统一复用此筛选结果）
+    function getFilteredData(data) {
+      const source = data || aggregateData();
+      return source.filter(row => {
+        // 品类复选多选匹配
+        if (!state.categories.includes('ALL') && !state.categories.includes(row.category)) return false;
+        // 单/绒复选多选匹配
+        if (!state.fleeces.includes('ALL')) {
+          const f = (row.fleece || '').trim();
+          const normFleece = f.includes('绒') ? '绒里' : '单里';
+          if (!state.fleeces.includes(normFleece)) return false;
+        }
+        // 季节复选多选匹配
+        if (!state.seasons.includes('ALL') && !state.seasons.includes(row.season)) return false;
+        // 货号模糊搜索
+        if (state.searchSku && !row.sku.toLowerCase().includes(state.searchSku.toLowerCase())) return false;
+        return true;
+      });
+    }
+
+    function onSearchInput() {
+      state.currentPage = 1;
+      renderAll();
+    }
+
+    function toggleFilterMenu(menuId) {
+      const menu = document.getElementById(menuId);
+      if (!menu) return;
+      const isHidden = menu.classList.contains('hidden');
+      document.querySelectorAll('.filter-multiselect > div').forEach(el => el.classList.add('hidden'));
+      if (isHidden) menu.classList.remove('hidden');
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.filter-multiselect')) {
+        document.querySelectorAll('.filter-multiselect > div').forEach(el => el.classList.add('hidden'));
+      }
+    });
+
+    function handleMultiFilterChange(type, value, isChecked) {
+      let arr = type === 'category' ? state.categories : (type === 'fleece' ? state.fleeces : state.seasons);
+      const allValues = type === 'category' ? Array.from(new Set(state.items.map(i => i.商品类目).filter(Boolean))) : (type === 'fleece' ? ['单里', '绒里'] : Array.from(new Set(state.items.map(i => i.季节).filter(Boolean))));
+
+      if (value === 'ALL') {
+        arr = ['ALL'];
+      } else {
+        arr = arr.filter(v => v !== 'ALL');
+        if (isChecked) {
+          if (!arr.includes(value)) arr.push(value);
+        } else {
+          arr = arr.filter(v => v !== value);
+        }
+        if (arr.length === 0 || arr.length === allValues.length) {
+          arr = ['ALL'];
+        }
+      }
+
+      if (type === 'category') state.categories = arr;
+      else if (type === 'fleece') state.fleeces = arr;
+      else state.seasons = arr;
+
+      state.currentPage = 1;
+      updateFilterLabels();
+      updateFilterCheckboxUI();
+      renderAll();
+    }
+
+    function updateFilterLabels() {
+      const catLabel = document.getElementById('categoryLabelText');
+      if (catLabel) {
+        if (state.categories.includes('ALL')) catLabel.textContent = '品类: 全部';
+        else if (state.categories.length === 1) catLabel.textContent = `品类: ${state.categories[0]}`;
+        else catLabel.textContent = `品类: 已选(${state.categories.length})`;
+      }
+
+      const fleeceLabel = document.getElementById('fleeceLabelText');
+      if (fleeceLabel) {
+        if (state.fleeces.includes('ALL')) fleeceLabel.textContent = '单/绒: 全部';
+        else if (state.fleeces.length === 1) fleeceLabel.textContent = `单/绒: ${state.fleeces[0]}`;
+        else fleeceLabel.textContent = `单/绒: 已选(${state.fleeces.length})`;
+      }
+
+      const seasonLabel = document.getElementById('seasonLabelText');
+      if (seasonLabel) {
+        if (state.seasons.includes('ALL')) seasonLabel.textContent = '季节: 全部';
+        else if (state.seasons.length === 1) seasonLabel.textContent = `季节: ${state.seasons[0]}`;
+        else seasonLabel.textContent = `季节: 已选(${state.seasons.length})`;
+      }
+    }
+
+    function updateFilterCheckboxUI() {
+      populateFilterDropdowns();
+    }
+
+    function populateFilterDropdowns() {
+      const categories = Array.from(new Set(state.items.map(i => i.商品类目).filter(Boolean)));
+      const seasons = Array.from(new Set(state.items.map(i => i.季节).filter(Boolean)));
+      const fleeces = ['单里', '绒里'];
+
+      const catMenu = document.getElementById('categoryMenu');
+      if (catMenu) {
+        const isAllCat = state.categories.includes('ALL');
+        let html = `<label class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-50 rounded cursor-pointer font-bold text-indigo-700">
+          <input type="checkbox" value="ALL" ${isAllCat ? 'checked' : ''} onchange="handleMultiFilterChange('category','ALL',this.checked)"> 全部品类
+        </label>`;
+        categories.forEach(c => {
+          const checked = isAllCat || state.categories.includes(c);
+          html += `<label class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-50 rounded cursor-pointer text-slate-700">
+            <input type="checkbox" value="${c}" ${checked && !isAllCat ? 'checked' : ''} onchange="handleMultiFilterChange('category','${c}',this.checked)"> ${c}
+          </label>`;
+        });
+        catMenu.innerHTML = html;
+      }
+
+      const fleeceMenu = document.getElementById('fleeceMenu');
+      if (fleeceMenu) {
+        const isAllFleece = state.fleeces.includes('ALL');
+        let html = `<label class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-50 rounded cursor-pointer font-bold text-indigo-700">
+          <input type="checkbox" value="ALL" ${isAllFleece ? 'checked' : ''} onchange="handleMultiFilterChange('fleece','ALL',this.checked)"> 全部 (单/绒)
+        </label>`;
+        fleeces.forEach(f => {
+          const checked = isAllFleece || state.fleeces.includes(f);
+          html += `<label class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-50 rounded cursor-pointer text-slate-700">
+            <input type="checkbox" value="${f}" ${checked && !isAllFleece ? 'checked' : ''} onchange="handleMultiFilterChange('fleece','${f}',this.checked)"> ${f}
+          </label>`;
+        });
+        fleeceMenu.innerHTML = html;
+      }
+
+      const seasonMenu = document.getElementById('seasonMenu');
+      if (seasonMenu) {
+        const isAllSeason = state.seasons.includes('ALL');
+        let html = `<label class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-50 rounded cursor-pointer font-bold text-indigo-700">
+          <input type="checkbox" value="ALL" ${isAllSeason ? 'checked' : ''} onchange="handleMultiFilterChange('season','ALL',this.checked)"> 全部季节
+        </label>`;
+        seasons.forEach(s => {
+          const checked = isAllSeason || state.seasons.includes(s);
+          html += `<label class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-50 rounded cursor-pointer text-slate-700">
+            <input type="checkbox" value="${s}" ${checked && !isAllSeason ? 'checked' : ''} onchange="handleMultiFilterChange('season','${s}',this.checked)"> ${s}
+          </label>`;
+        });
+        seasonMenu.innerHTML = html;
+      }
+
+      updateFilterLabels();
     }
 
     function aggregateData() {
@@ -776,17 +1054,8 @@
       });
       trHeader2.innerHTML = baseThHtml + channelsThHtml;
 
-      let filtered = data.filter(row => {
-        if (state.category !== 'ALL' && row.category !== state.category) return false;
-        if (state.fleece !== 'ALL') {
-          const f = (row.fleece || '').trim();
-          if (state.fleece === '单里' && !(f === '单里' || f === '单')) return false;
-          if (state.fleece === '绒里' && !(f === '绒里' || f === '绒')) return false;
-        }
-        if (state.season !== 'ALL' && row.season !== state.season) return false;
-        if (state.searchSku && !row.sku.toLowerCase().includes(state.searchSku.toLowerCase())) return false;
-        return true;
-      });
+      // 提取符合筛选条件的全部数据集
+      let filtered = getFilteredData(data);
 
       filtered.sort((a, b) => {
         let vA = a[state.sortCol];
@@ -795,10 +1064,33 @@
         return vA < vB ? 1 : -1;
       });
 
-      document.getElementById('filteredCount').innerText = filtered.length;
+      const totalRows = filtered.length;
+      document.getElementById('filteredCount').innerText = totalRows;
+      document.getElementById('pageTotalCount').innerText = totalRows;
+
+      // 计算分页数据
+      const isAllPage = state.pageSize === 'ALL';
+      const size = isAllPage ? totalRows : parseInt(state.pageSize, 10);
+      state.totalPages = isAllPage ? 1 : (Math.ceil(totalRows / size) || 1);
+      if (state.currentPage > state.totalPages) state.currentPage = state.totalPages;
+      if (state.currentPage < 1) state.currentPage = 1;
+
+      const startIdx = totalRows === 0 ? 0 : (state.currentPage - 1) * size;
+      const endIdx = isAllPage ? totalRows : Math.min(startIdx + size, totalRows);
+      const pageRows = isAllPage ? filtered : filtered.slice(startIdx, endIdx);
+
+      // 分页状态展示
+      document.getElementById('pageStartIdx').innerText = totalRows === 0 ? 0 : startIdx + 1;
+      document.getElementById('pageEndIdx').innerText = endIdx;
+      document.getElementById('currentPageNum').innerText = state.currentPage;
+      document.getElementById('totalPageNum').innerText = state.totalPages;
+      document.getElementById('btnPageFirst').disabled = state.currentPage <= 1;
+      document.getElementById('btnPagePrev').disabled = state.currentPage <= 1;
+      document.getElementById('btnPageNext').disabled = state.currentPage >= state.totalPages;
+      document.getElementById('btnPageLast').disabled = state.currentPage >= state.totalPages;
 
       let bodyHtml = '';
-      filtered.forEach((row, idx) => {
+      pageRows.forEach((row, idx) => {
         const stPercent = (row.sellThrough * 100).toFixed(1);
         const isLowSell = row.sellThrough < 0.25;
 
@@ -875,6 +1167,7 @@
       });
       tbody.innerHTML = bodyHtml || `<tr><td colspan="23" class="py-12 text-center text-slate-400">暂无符合条件的货号记录</td></tr>`;
 
+      // 汇总行统计基于全部筛选后的商品（不受单页限制）
       let sum7 = 0, sum30 = 0, sumTotalSales = 0, sumWStock = 0, sumTStock = 0, sumStock = 0;
       const sumChannelSales = {};
       const sumChannelTargets = {};
@@ -944,6 +1237,18 @@
       document.getElementById('renderTimeText').innerText = `更新时间: ${new Date().toLocaleTimeString()}`;
     }
 
+    function goToPage(p) {
+      if (p < 1 || p > state.totalPages || p === state.currentPage) return;
+      state.currentPage = p;
+      renderMainTable(aggregateData());
+    }
+
+    function changePageSize(val) {
+      state.pageSize = val;
+      state.currentPage = 1;
+      renderMainTable(aggregateData());
+    }
+
     function generateWeeksSchedule() {
       const weeks = [];
       const latestStr = getLatestSalesDate();
@@ -982,7 +1287,7 @@
       const labels = [];
       const weeklyTargetsData = [];
       const weeklyActualsData = [];
-      const cumRateData = [];
+      const weeklyRateData = [];
 
       let tableHtml = '';
 
@@ -1024,7 +1329,8 @@
         labels.push(`第${w.index}周 (${w.startStr.slice(5)})`);
         weeklyTargetsData.push(weekTarget);
         weeklyActualsData.push(isPast || isCurrent ? wSales : null);
-        cumRateData.push(isPast || isCurrent ? (cumRate * 100).toFixed(1) : null);
+        // 单周达成率数值
+        weeklyRateData.push(isPast || isCurrent ? (weekRate * 100).toFixed(1) : null);
 
         tableHtml += `
           <tr class="hover:bg-slate-50 transition-colors ${isCurrent ? 'bg-indigo-50/40 font-semibold' : ''}">
@@ -1069,12 +1375,20 @@
         document.getElementById('stockVelocityText').innerText = `近30天无动销`;
       }
 
-      renderWeeklyChart(labels, weeklyTargetsData, weeklyActualsData, cumRateData);
+      // 渲染子弹图 (折线为单周达成率)
+      renderWeeklyChart(labels, weeklyTargetsData, weeklyActualsData, weeklyRateData);
     }
 
-    function renderWeeklyChart(labels, targets, actuals, cumRates) {
+    // 子弹图 (Bullet Chart)：浅色宽柱展示目标基准，内部深色细柱展示实际销量，叠加单周达成率折线
+    function renderWeeklyChart(labels, targets, actuals, weekRates) {
       const ctx = document.getElementById('weeklyChart').getContext('2d');
       if (weeklyChartInstance) weeklyChartInstance.destroy();
+
+      const actualColors = actuals.map((act, i) => {
+        if (act === null) return 'rgba(59, 130, 246, 0.4)';
+        const tgt = targets[i] || 0;
+        return act >= tgt ? '#10b981' : '#2563eb';
+      });
 
       weeklyChartInstance = new Chart(ctx, {
         type: 'bar',
@@ -1083,28 +1397,39 @@
           datasets: [
             {
               type: 'line',
-              label: '累计总库存消化率 (%)',
-              data: cumRates,
-              borderColor: '#10b981',
-              backgroundColor: '#10b981',
+              label: '单周达成率 (%)',
+              data: weekRates,
+              borderColor: '#f59e0b',
+              backgroundColor: '#f59e0b',
               borderWidth: 2.5,
               pointRadius: 3,
               tension: 0.2,
-              yAxisID: 'yRate'
+              yAxisID: 'yRate',
+              order: 1
             },
             {
               type: 'bar',
-              label: '实际销售 (件)',
+              label: '实际销售 (子弹完成柱)',
               data: actuals,
-              backgroundColor: '#3b82f6',
-              borderRadius: 4
+              backgroundColor: actualColors,
+              borderRadius: 3,
+              barPercentage: 0.42,
+              categoryPercentage: 0.82,
+              grouped: false,
+              order: 2
             },
             {
               type: 'bar',
-              label: '按总库存拆解周目标 (件)',
+              label: '按总库存拆解周目标 (标尺底)',
               data: targets,
-              backgroundColor: '#e0e7ff',
-              borderRadius: 4
+              backgroundColor: 'rgba(226, 232, 240, 0.85)',
+              borderColor: '#cbd5e1',
+              borderWidth: 1,
+              borderRadius: 4,
+              barPercentage: 0.85,
+              categoryPercentage: 0.82,
+              grouped: false,
+              order: 3
             }
           ]
         },
@@ -1115,23 +1440,45 @@
           scales: {
             y: {
               beginAtZero: true,
-              title: { display: true, text: '去库件数' },
-              grid: { color: '#f1f5f9' }
+              title: { display: true, text: '去库件数 (件)' },
+              grid: { color: '#f1f5f9' },
+              stacked: false
             },
             yRate: {
               position: 'right',
               beginAtZero: true,
-              max: 100,
-              title: { display: true, text: '达成率 (%)' },
+              title: { display: true, text: '周达成率 (%)' },
               grid: { display: false }
             },
             x: {
               grid: { display: false },
+              stacked: false,
               ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } }
             }
           },
           plugins: {
-            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+            legend: {
+              position: 'top',
+              labels: { boxWidth: 12, font: { size: 11 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const idx = context.dataIndex;
+                  const tgt = targets[idx] || 0;
+                  const act = actuals[idx];
+                  if (context.datasetIndex === 0) {
+                    return `周达成率: ${context.raw !== null ? context.raw + '%' : '未开始'}`;
+                  } else if (context.datasetIndex === 1) {
+                    if (act === null) return `实际销售: 未开始 / 暂无流水`;
+                    const rate = tgt > 0 ? ((act / tgt) * 100).toFixed(1) : '0.0';
+                    return `实际销售: ${act.toLocaleString()} 件 (周完成率: ${rate}%)`;
+                  } else {
+                    return `周拆解目标: ${tgt.toLocaleString()} 件`;
+                  }
+                }
+              }
+            }
           }
         }
       });
@@ -1143,17 +1490,7 @@
 
       const sortMode = document.getElementById('strategySortSelect')?.value || 'SELL_THROUGH_ASC';
 
-      let sluggishList = data.filter(row => {
-        if (state.category !== 'ALL' && row.category !== state.category) return false;
-        if (state.fleece !== 'ALL') {
-          const f = (row.fleece || '').trim();
-          if (state.fleece === '单里' && !(f === '单里' || f === '单')) return false;
-          if (state.fleece === '绒里' && !(f === '绒里' || f === '绒')) return false;
-        }
-        if (state.season !== 'ALL' && row.season !== state.season) return false;
-        if (state.searchSku && !row.sku.toLowerCase().includes(state.searchSku.toLowerCase())) return false;
-        return true;
-      });
+      let sluggishList = getFilteredData(data);
 
       if (sortMode === 'SELL_THROUGH_ASC') {
         sluggishList.sort((a, b) => a.sellThrough - b.sellThrough);
@@ -1195,7 +1532,7 @@
                 </div>
 
                 <div class="absolute bottom-2 right-2 bg-white/90 backdrop-blur-xs px-2 py-1 rounded-md text-[10px] text-slate-700 font-medium">
-                  点击查看渠道周销详情
+                  点击查看水平横向看板
                 </div>
               </div>
 
@@ -1335,26 +1672,15 @@
       tabs.forEach(t => {
         const b = document.getElementById(t.btn);
         if (t.id === tabId) {
-          b.className = 'px-4 py-2 rounded-xl bg-white text-indigo-700 shadow-xs flex items-center space-x-2 transition-all font-bold';
+          b.className = 'px-3 py-1.5 rounded-lg bg-white text-indigo-700 shadow-xs flex items-center space-x-1.5 transition-all text-xs font-bold';
         } else {
-          b.className = 'px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 flex items-center space-x-2 transition-all font-semibold';
+          b.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition-all text-xs';
         }
       });
 
       if (tabId === 'weeklyTab') renderWeeklyModule();
       if (tabId === 'storeMatrixTab') renderStoreWeekMatrix();
       if (tabId === 'strategyTab') renderStrategyModule(aggregateData());
-    }
-
-    function populateFilterDropdowns() {
-      const categories = Array.from(new Set(state.items.map(i => i.商品类目).filter(Boolean)));
-      const seasons = Array.from(new Set(state.items.map(i => i.季节).filter(Boolean)));
-
-      const catEl = document.getElementById('categoryFilter');
-      catEl.innerHTML = `<option value="ALL">全部品类</option>` + categories.map(c => `<option value="${c}">${c}</option>`).join('');
-
-      const seaEl = document.getElementById('seasonFilter');
-      seaEl.innerHTML = `<option value="ALL">全部季节</option>` + seasons.map(s => `<option value="${s}">${s}</option>`).join('');
     }
 
     function openPureImageModal(src, sku) {
@@ -1375,6 +1701,9 @@
       if (currentDetailSku) showSkuDetail(currentDetailSku);
     }
 
+    /* -------------------------------------------------------------
+       核心改造：款模型详情弹窗（环比计算由百分比调整为绝对值增量）
+    ------------------------------------------------------------- */
     function showSkuDetail(sku) {
       currentDetailSku = sku;
       const item = state.items.find(i => i.货号 === sku);
@@ -1387,8 +1716,21 @@
       const modalStart7 = modalShiftDate(modalLatestDate, -6), modalPrev7Start = modalShiftDate(modalLatestDate, -13), modalPrev7End = modalShiftDate(modalLatestDate, -7);
       const modalStart30 = modalShiftDate(modalLatestDate, -29), modalPrev30Start = modalShiftDate(modalLatestDate, -59), modalPrev30End = modalShiftDate(modalLatestDate, -30);
       const modalFmt = n => (Number(n) || 0).toLocaleString('zh-CN');
-      const modalRatioText = (cur, prev) => prev > 0 ? `${cur > prev ? '+' : ''}${((cur - prev) / prev * 100).toFixed(1)}%` : (cur > 0 ? '新增' : '—');
-      const modalRatioClass = (cur, prev) => cur < prev ? 'text-rose-600 font-bold' : (cur > prev ? 'text-blue-600 font-bold' : 'text-slate-500');
+
+      // 环比由百分比改为绝对值增量格式
+      const modalRatioText = (cur, prev) => {
+        const diff = (Number(cur) || 0) - (Number(prev) || 0);
+        if (diff > 0) return `+${diff.toLocaleString()}`;
+        if (diff < 0) return `${diff.toLocaleString()}`;
+        return '0';
+      };
+      const modalRatioClass = (cur, prev) => {
+        const diff = (Number(cur) || 0) - (Number(prev) || 0);
+        if (diff < 0) return 'text-rose-600 font-bold';
+        if (diff > 0) return 'text-blue-600 font-bold';
+        return 'text-slate-400 font-medium';
+      };
+
       const modalChannelStats = ch => {
         const logs = (state.salesLogs || []).filter(x => String(x.货号 || '').trim() === String(sku).trim() && String(x.渠道归类 || '').trim() === ch && x.日期 && x.日期 <= modalLatest);
         const sum = (a, b) => logs.filter(x => x.日期 >= a && x.日期 <= b).reduce((n, x) => n + (Number(x.销量) || 0), 0);
@@ -1413,7 +1755,7 @@
         };
       }).filter(Boolean);
 
-      // 渠道明细排序
+      // 渠道明细排序（基于绝对增量差额进行比较）
       channelRows.sort((a, b) => {
         let av, bv;
         const k = detailChannelSort.key;
@@ -1423,12 +1765,12 @@
         else if (k === 'pct') { av = a.pct ?? -Infinity; bv = b.pct ?? -Infinity; }
         else if (k === 's7') { av = a.stats.s7; bv = b.stats.s7; }
         else if (k === 'r7') {
-          av = a.stats.p7 > 0 ? (a.stats.s7 - a.stats.p7) / a.stats.p7 : (a.stats.s7 > 0 ? Infinity : -Infinity);
-          bv = b.stats.p7 > 0 ? (b.stats.s7 - b.stats.p7) / b.stats.p7 : (b.stats.s7 > 0 ? Infinity : -Infinity);
+          av = a.stats.s7 - a.stats.p7;
+          bv = b.stats.s7 - b.stats.p7;
         } else if (k === 's30') { av = a.stats.s30; bv = b.stats.s30; }
         else {
-          av = a.stats.p30 > 0 ? (a.stats.s30 - a.stats.p30) / a.stats.p30 : (a.stats.s30 > 0 ? Infinity : -Infinity);
-          bv = b.stats.p30 > 0 ? (b.stats.s30 - b.stats.p30) / b.stats.p30 : (b.stats.s30 > 0 ? Infinity : -Infinity);
+          av = a.stats.s30 - a.stats.p30;
+          bv = b.stats.s30 - b.stats.p30;
         }
         const cmp = typeof av === 'string' ? av.localeCompare(bv, 'zh-CN') : (av - bv);
         return (detailChannelSort.asc ? 1 : -1) * cmp;
@@ -1446,7 +1788,6 @@
       });
       const totAchievePct = sumTotTarget > 0 ? (sumTotSales / sumTotTarget * 100) : null;
 
-      // 根据近7天销售计算可销售天数 (总库存 / (近7天销量 / 7))
       const s7Daily = (aggregated.sales7 || 0) / 7;
       const daysOfSupply = s7Daily > 0 ? Math.round(aggregated.totalStock / s7Daily) : null;
       let daysDisplay = '';
@@ -1459,125 +1800,160 @@
         daysColor = daysOfSupply > 120 ? 'text-rose-600 font-black' : (daysOfSupply > 60 ? 'text-amber-600 font-black' : 'text-emerald-600 font-black');
       }
 
+      // 水平横向 A4 经典双列结构
       const content = `
-        <!-- 弹窗顶端：左侧基本信息 + 右上角最顶端在仓库存、在途库存、待清总库存、累计销量、可销售天数 KPI 排版 -->
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 pr-10 gap-3.5">
-          <!-- 左侧：图片与商品基础属性 -->
-          <div class="flex items-start space-x-3.5">
-            <img src="${item.图片链接}" onclick="openPureImageModal('${item.图片链接}', '${item.货号}')" class="w-20 h-20 sm:w-22 sm:h-22 object-cover rounded-2xl border border-slate-200 cursor-zoom-in hover:scale-105 transition-transform shrink-0 shadow-2xs">
-            <div class="space-y-1">
-              <div class="flex flex-wrap items-center gap-1.5">
-                <span class="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md font-bold">${item.货号}</span>
-                <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">${item.商品类目}</span>
-                <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-medium">${fleeceLabel}</span>
-                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">${item.季节}</span>
+        <!-- 顶部横向标题栏 -->
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 mb-4 pr-16 gap-3">
+          <div class="flex items-center space-x-3">
+            <span class="w-2.5 h-6 rounded-full bg-indigo-600"></span>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="text-lg font-black text-slate-900 tracking-tight">款模型全景动销跟踪看板</h3>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">A4 横向版</span>
               </div>
-              <h3 class="text-base font-bold text-slate-900 mt-1">${item.商品类目} · 主仓: <span class="font-semibold text-slate-700">${inv.仓库}</span></h3>
-              <p class="text-xs text-slate-500 flex items-center gap-1.5">
-                <span>综合售罄率:</span>
-                <span class="px-2 py-0.5 rounded-full text-xs font-black ${aggregated.sellThrough < 0.25 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">
-                  ${(aggregated.sellThrough * 100).toFixed(1)}%
-                </span>
-              </p>
+              <p class="text-[11px] text-slate-500">款号：<strong class="text-slate-800 font-mono text-xs">${item.货号}</strong> · 统计基准截止日：${modalLatest}</p>
             </div>
           </div>
 
-          <!-- 右上角最顶端：在仓库存、在途库存、待清总库存、累计销量、可销售天数 精致紧凑 KPI 排版 -->
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 shrink-0 self-start lg:self-center">
-            <!-- 1. 在仓库存 -->
-            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 text-center min-w-[88px] shadow-2xs">
-              <div class="text-[10px] font-medium text-slate-500 tracking-tight">在仓库存</div>
-              <div class="text-sm sm:text-base font-bold text-slate-800 leading-tight mt-0.5">${(Number(inv.在仓库存) || 0).toLocaleString()}</div>
+          <!-- 顶部轻量全局进度条 -->
+          <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-2xs">
+            <div class="flex items-center space-x-1.5 text-slate-700 text-xs font-semibold">
+              <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+              <span class="text-[11px]">销售周期进度:</span>
             </div>
-            <!-- 2. 在途库存 -->
-            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 text-center min-w-[88px] shadow-2xs">
-              <div class="text-[10px] font-medium text-slate-500 tracking-tight">在途库存</div>
-              <div class="text-sm sm:text-base font-bold text-slate-800 leading-tight mt-0.5">${(Number(inv.在途库存) || 0).toLocaleString()}</div>
+            <div class="w-24 sm:w-32 bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: ${timePct}%"></div>
             </div>
-            <!-- 3. 待清总库存 -->
-            <div class="bg-amber-50/70 border border-amber-200/80 rounded-xl px-3 py-2 text-center min-w-[92px] shadow-2xs">
-              <div class="text-[10px] font-bold text-amber-700 tracking-tight">待清总库存</div>
-              <div class="text-sm sm:text-base font-black text-amber-600 leading-tight mt-0.5">${(Number(aggregated.totalStock) || 0).toLocaleString()}</div>
-            </div>
-            <!-- 4. 累计销量 -->
-            <div class="bg-blue-50/70 border border-blue-200/80 rounded-xl px-3 py-2 text-center min-w-[92px] shadow-2xs">
-              <div class="text-[10px] font-bold text-blue-700 tracking-tight">累计销量</div>
-              <div class="text-sm sm:text-base font-black text-blue-600 leading-tight mt-0.5">${(Number(aggregated.totalSales) || 0).toLocaleString()}</div>
-            </div>
-            <!-- 5. 可销售天数 (基于近7天销售速度) -->
-            <div class="bg-purple-50/70 border border-purple-200/80 rounded-xl px-3 py-2 text-center min-w-[92px] shadow-2xs">
-              <div class="text-[10px] font-bold text-purple-700 tracking-tight" title="总库存 / (近7天销量 / 7)">可销售天数</div>
-              <div class="text-sm sm:text-base ${daysColor} leading-tight mt-0.5">${daysDisplay}</div>
-            </div>
+            <span class="text-xs font-black text-indigo-600 font-mono">${timePct}%</span>
+            <span class="text-[10px] text-slate-400">(${daysPassed}/154天)</span>
           </div>
         </div>
 
-        <div class="mt-4">
-          <!-- 模块标题与时间进度条组件 -->
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
-            <div class="flex items-center space-x-2">
-              <h4 class="text-xs font-bold text-slate-800">渠道认领目标与近期动销明细</h4>
-              <span class="text-[10px] text-slate-400">（点击表头列名可排序）</span>
+        <!-- 主体水平横向双翼布局 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          
+          <!-- 左翼：单品总貌、5大库存KPI与周销走势折线图 (占 5 列) -->
+          <div class="lg:col-span-5 space-y-3.5 flex flex-col justify-between">
+            <div class="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex items-center space-x-4">
+              <img src="${item.图片链接}" onclick="openPureImageModal('${item.图片链接}', '${item.货号}')" 
+                class="w-24 h-24 object-cover rounded-xl border border-slate-200 cursor-zoom-in hover:scale-105 transition-transform shrink-0 shadow-xs" 
+                alt="${item.货号}" onerror="this.src='https://placehold.co/180x180/f1f5f9/94a3b8?text=NO+PIC'">
+              <div class="space-y-1.5 min-w-0">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded font-mono font-bold">${item.货号}</span>
+                  <span class="text-[11px] bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded font-medium">${item.商品类目}</span>
+                  <span class="text-[11px] bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded font-medium">${fleeceLabel}</span>
+                  <span class="text-[11px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-medium">${item.季节}</span>
+                </div>
+                <div class="text-xs text-slate-600">主存储仓: <strong class="text-slate-800 font-bold">${inv.仓库}</strong></div>
+                <div class="flex items-center space-x-2 pt-0.5">
+                  <span class="text-xs text-slate-500 font-medium">综合售罄率:</span>
+                  <span class="px-2.5 py-0.5 rounded-full text-xs font-black shadow-2xs ${aggregated.sellThrough < 0.25 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
+                    ${(aggregated.sellThrough * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <!-- 时间进度条 -->
-            <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-2xs">
-              <div class="flex items-center space-x-1.5 text-slate-700 text-xs font-semibold">
-                <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
-                <span class="text-[11px]">销售周期时间进度:</span>
+            <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              <div class="bg-white border border-slate-200 rounded-xl p-2 text-center shadow-2xs">
+                <div class="text-[10px] text-slate-400 font-medium">在仓库存</div>
+                <div class="text-sm sm:text-base font-bold text-slate-800 mt-0.5">${(Number(inv.在仓库存) || 0).toLocaleString()}</div>
               </div>
-              <div class="w-28 sm:w-36 bg-slate-200 rounded-full h-2 overflow-hidden">
-                <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: ${timePct}%"></div>
+              <div class="bg-white border border-slate-200 rounded-xl p-2 text-center shadow-2xs">
+                <div class="text-[10px] text-slate-400 font-medium">在途库存</div>
+                <div class="text-sm sm:text-base font-bold text-slate-800 mt-0.5">${(Number(inv.在途库存) || 0).toLocaleString()}</div>
               </div>
-              <span class="text-xs font-black text-indigo-600 font-mono">${timePct}%</span>
-              <span class="text-[10px] text-slate-400">(${daysPassed}/154天)</span>
+              <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-2 text-center shadow-2xs">
+                <div class="text-[10px] font-bold text-amber-700">待清总库存</div>
+                <div class="text-sm sm:text-base font-black text-amber-600 mt-0.5">${(Number(aggregated.totalStock) || 0).toLocaleString()}</div>
+              </div>
+              <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-2 text-center shadow-2xs">
+                <div class="text-[10px] font-bold text-blue-700">累计销量</div>
+                <div class="text-sm sm:text-base font-black text-blue-600 mt-0.5">${(Number(aggregated.totalSales) || 0).toLocaleString()}</div>
+              </div>
+              <div class="bg-purple-50/70 border border-purple-200 rounded-xl p-2 text-center shadow-2xs col-span-2 sm:col-span-1">
+                <div class="text-[10px] font-bold text-purple-700" title="总库存 / (近7天销量 / 7)">可销天数</div>
+                <div class="text-sm sm:text-base ${daysColor} mt-0.5">${daysDisplay}</div>
+              </div>
+            </div>
+
+            <div class="border border-slate-200 rounded-2xl p-3.5 bg-white shadow-2xs">
+              <div class="flex items-center justify-between mb-1.5">
+                <h4 class="text-xs font-bold text-slate-800 flex items-center">
+                  <span class="w-2 h-2 rounded-full bg-blue-600 mr-1.5"></span>
+                  该款式周度动销走势 (22周追踪)
+                </h4>
+                <span class="text-[10px] text-slate-400">单位：件</span>
+              </div>
+              <div class="h-48 sm:h-52 w-full">
+                <canvas id="skuWeeklyTrendChart"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 右翼：渠道认领目标与近期动销明细矩阵 (展示绝对值增量) -->
+          <div class="lg:col-span-7 space-y-2">
+            <div class="flex items-center justify-between px-1">
+              <h4 class="text-xs font-bold text-slate-800 flex items-center">
+                <span class="w-2 h-2 rounded-full bg-indigo-600 mr-1.5"></span>
+                渠道认领目标与近期动销明细
+              </h4>
+              <span class="text-[10px] text-slate-400">（点击表头列名可快速排序）</span>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 overflow-x-auto shadow-2xs">
+              <table class="w-full text-[11px] text-center border-collapse leading-tight whitespace-nowrap">
+                <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('channel')">渠道归类 ${detailChannelSort.key==='channel'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('sales')">累计销量 ${detailChannelSort.key==='sales'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('target')">销量目标 ${detailChannelSort.key==='target'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('pct')">达成率 ${detailChannelSort.key==='pct'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s7')">近7天销 ${detailChannelSort.key==='s7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r7')">7天增量 ${detailChannelSort.key==='r7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s30')">近30天销 ${detailChannelSort.key==='s30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r30')">30天增量 ${detailChannelSort.key==='r30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                  ${channelRows.map(({ch,x:chInfo,stats,pct})=>`
+                    <tr class="hover:bg-indigo-50/20 transition-colors">
+                      <td class="px-2 py-2 text-center font-bold text-slate-800">${ch}</td>
+                      <td class="px-2 py-2 text-center font-semibold text-slate-900">${modalFmt(chInfo.sales)}</td>
+                      <td class="px-2 py-2 text-center text-slate-600">${chInfo.hasTarget?modalFmt(chInfo.target):'—'}</td>
+                      <td class="px-2 py-2 text-center">${pct===null?'—':`<span class="px-1.5 py-0.5 rounded font-bold ${pct>=100?'bg-emerald-100 text-emerald-800':(pct>=40?'bg-amber-100 text-amber-800':'bg-slate-100 text-slate-700')}">${pct.toFixed(1)}%</span>`}</td>
+                      <td class="px-2 py-2 text-center font-bold text-blue-700">${modalFmt(stats.s7)}</td>
+                      <td class="px-2 py-2 text-center ${modalRatioClass(stats.s7,stats.p7)}">${modalRatioText(stats.s7,stats.p7)}</td>
+                      <td class="px-2 py-2 text-center font-bold text-amber-700">${modalFmt(stats.s30)}</td>
+                      <td class="px-2 py-2 text-center ${modalRatioClass(stats.s30,stats.p30)}">${modalRatioText(stats.s30,stats.p30)}</td>
+                    </tr>
+                  `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400">当前筛选条件下暂无渠道目标或动销数据</td></tr>`}
+                </tbody>
+                <!-- 汇总合计行 -->
+                <tfoot class="bg-slate-100/90 font-bold border-t-2 border-slate-300 text-slate-900">
+                  <tr>
+                    <td class="px-2 py-2.5 text-center font-extrabold text-slate-900">汇总合计</td>
+                    <td class="px-2 py-2.5 text-center font-black text-blue-800">${modalFmt(sumTotSales)}</td>
+                    <td class="px-2 py-2.5 text-center font-extrabold text-slate-700">${sumTotTarget > 0 ? modalFmt(sumTotTarget) : '—'}</td>
+                    <td class="px-2 py-2.5 text-center font-black text-indigo-700">${totAchievePct !== null ? totAchievePct.toFixed(1) + '%' : '—'}</td>
+                    <td class="px-2 py-2.5 text-center font-black text-blue-700">${modalFmt(sumTotS7)}</td>
+                    <td class="px-2 py-2.5 text-center ${modalRatioClass(sumTotS7, sumTotP7)}">${modalRatioText(sumTotS7, sumTotP7)}</td>
+                    <td class="px-2 py-2.5 text-center font-black text-amber-700">${modalFmt(sumTotS30)}</td>
+                    <td class="px-2 py-2.5 text-center ${modalRatioClass(sumTotS30, sumTotP30)}">${modalRatioText(sumTotS30, sumTotP30)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between text-[10px] text-slate-400 px-1 pt-1 gap-2">
+              <span>* 增量计算：近N天销量 - 前一个周期N天销量。增加为带+号蓝色，减少为红色负数，持平显示0</span>
+              <span>横向A4规格：297mm × 210mm (自适应排版)</span>
             </div>
           </div>
 
-          <!-- 居中对齐表格与汇总行 -->
-          <div class="rounded-xl border border-slate-200 overflow-x-hidden">
-            <table class="w-full table-fixed text-[11px] text-center border-collapse leading-tight">
-              <colgroup><col style="width:17%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:11%"><col style="width:12%"><col style="width:12%"></colgroup>
-              <thead class="bg-slate-50 text-slate-600"><tr>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('channel')">渠道归类 ${detailChannelSort.key==='channel'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('sales')">累计销量 ${detailChannelSort.key==='sales'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('target')">销量目标 ${detailChannelSort.key==='target'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('pct')">达成率 ${detailChannelSort.key==='pct'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s7')">近7天销量 ${detailChannelSort.key==='s7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r7')">7天环比 ${detailChannelSort.key==='r7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s30')">近30天销量 ${detailChannelSort.key==='s30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-                <th class="px-1 py-2 text-center"><button class="font-semibold whitespace-nowrap inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r30')">30天环比 ${detailChannelSort.key==='r30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
-              </tr></thead>
-              <tbody>
-                ${channelRows.map(({ch,x:chInfo,stats,pct})=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
-                    <td class="px-1.5 py-2 text-center font-semibold text-slate-700 truncate" title="${ch}">${ch}</td>
-                    <td class="px-1 py-2 text-center whitespace-nowrap">${modalFmt(chInfo.sales)}</td>
-                    <td class="px-1 py-2 text-center whitespace-nowrap">${chInfo.hasTarget?modalFmt(chInfo.target):'—'}</td>
-                    <td class="px-1 py-2 text-center whitespace-nowrap">${pct===null?'—':pct.toFixed(1)+'%'}</td>
-                    <td class="px-1 py-2 text-center font-semibold text-blue-700 whitespace-nowrap">${modalFmt(stats.s7)}</td>
-                    <td class="px-1 py-2 text-center whitespace-nowrap ${modalRatioClass(stats.s7,stats.p7)}">${modalRatioText(stats.s7,stats.p7)}</td>
-                    <td class="px-1 py-2 text-center font-semibold text-blue-700 whitespace-nowrap">${modalFmt(stats.s30)}</td>
-                    <td class="px-1 py-2 text-center whitespace-nowrap ${modalRatioClass(stats.s30,stats.p30)}">${modalRatioText(stats.s30,stats.p30)}</td>
-                  </tr>`).join('') || `<tr><td colspan="8" class="p-4 text-center text-slate-400">当前筛选条件下暂无渠道目标或动销数据</td></tr>`}
-              </tbody>
-              <!-- 汇总合计行 -->
-              <tfoot class="bg-slate-100/80 font-bold border-t-2 border-slate-300 text-slate-900">
-                <tr>
-                  <td class="px-1.5 py-2.5 text-center font-extrabold text-slate-900">汇总合计</td>
-                  <td class="px-1 py-2.5 text-center font-black text-blue-800 whitespace-nowrap">${modalFmt(sumTotSales)}</td>
-                  <td class="px-1 py-2.5 text-center font-extrabold text-slate-700 whitespace-nowrap">${sumTotTarget > 0 ? modalFmt(sumTotTarget) : '—'}</td>
-                  <td class="px-1 py-2.5 text-center font-black whitespace-nowrap text-indigo-700">${totAchievePct !== null ? totAchievePct.toFixed(1) + '%' : '—'}</td>
-                  <td class="px-1 py-2.5 text-center font-black text-blue-700 whitespace-nowrap">${modalFmt(sumTotS7)}</td>
-                  <td class="px-1 py-2.5 text-center whitespace-nowrap ${modalRatioClass(sumTotS7, sumTotP7)}">${modalRatioText(sumTotS7, sumTotP7)}</td>
-                  <td class="px-1 py-2.5 text-center font-black text-blue-700 whitespace-nowrap">${modalFmt(sumTotS30)}</td>
-                  <td class="px-1 py-2.5 text-center whitespace-nowrap ${modalRatioClass(sumTotS30, sumTotP30)}">${modalRatioText(sumTotS30, sumTotP30)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1.5">统计截止：${modalLatest}。当前销售周期时间进度为 <strong class="text-indigo-600 font-bold">${timePct}%</strong>；环比下滑为红色，环比增长为蓝色；前一周期为零时显示“新增”或“—”。</p>
         </div>
-        <div class="mt-5 border border-slate-200 rounded-2xl p-4"><h4 class="text-xs font-bold text-slate-800 mb-2">该款式 22 周周销趋势</h4><div class="h-56"><canvas id="skuWeeklyTrendChart"></canvas></div></div>
       `;
 
       document.getElementById('modalContent').innerHTML = content;
@@ -1628,6 +2004,7 @@
       return canvas.toDataURL('image/png').split(',')[1];
     }
 
+    // 导出 Excel 表格（已严格受当前筛选维度影响）
     async function exportToExcelWithImages() {
       const exportBtn = document.getElementById('exportBtn');
       const exportBtnText = document.getElementById('exportBtnText');
@@ -1635,11 +2012,24 @@
       exportBtnText.innerText = '正在生成带图表格...';
 
       try {
-        const data = aggregateData();
-        const visibleChannels = getVisibleChannels();
+        // 关键改动：基于当前筛选后的数据进行导出
+        const data = getFilteredData(aggregateData());
+        if (!data || data.length === 0) {
+          showToast('当前筛选条件下没有数据可导出！');
+          exportBtn.disabled = false;
+          exportBtnText.innerText = '导出带图Excel表格';
+          return;
+        }
 
+        const visibleChannels = getVisibleChannels();
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('滞销款销售跟进表');
+
+        // 设置 Excel 打印属性为水平横向 A4
+        worksheet.pageSetup = {
+          orientation: 'landscape',
+          paperSize: 9
+        };
 
         const cols = [
           { key: 'sku', width: 14 },
@@ -1736,6 +2126,131 @@
       } finally {
         exportBtn.disabled = false;
         exportBtnText.innerText = '导出带图Excel表格';
+      }
+    }
+
+    // 导出当前筛选结果为横向 A4 PDF (移除类目/单绒列，带上真实图片，精准防止截断)
+    async function exportToPDF() {
+      const pdfBtn = document.getElementById('exportPdfBtn');
+      const pdfBtnText = document.getElementById('exportPdfBtnText');
+      const filtered = getFilteredData(aggregateData());
+
+      if (!filtered || filtered.length === 0) {
+        showToast('当前筛选条件下无数据可导出为 PDF！');
+        return;
+      }
+
+      pdfBtn.disabled = true;
+      pdfBtnText.innerText = '正在生成横向PDF...';
+      showToast('正在加载商品图片并排版 PDF 报表...');
+
+      try {
+        const visibleChannels = getVisibleChannels();
+        const curDate = new Date().toISOString().slice(0, 10);
+
+        // 预处理图片为 Base64，确保在 html2pdf / html2canvas 中无跨域截断风险
+        const rowsWithImages = await Promise.all(filtered.map(async row => {
+          let b64 = '';
+          try {
+            b64 = await convertImageUrlToBase64(row.image, row.sku);
+          } catch(e) {
+            b64 = createSkuPlaceholderBase64(row.sku);
+          }
+          return {
+            ...row,
+            b64Img: b64 ? `data:image/png;base64,${b64}` : row.image
+          };
+        }));
+
+        // 创建专用的无截断水平横向打印容器
+        const printContainer = document.createElement('div');
+        printContainer.style.width = '1120px';
+        printContainer.style.background = '#ffffff';
+        printContainer.style.color = '#0f172a';
+        printContainer.style.padding = '12px';
+        printContainer.style.fontFamily = 'Inter, sans-serif';
+
+        // 筛选概况
+        const catText = state.categories.includes('ALL') ? '全部' : state.categories.join('、');
+        const fleeceText = state.fleeces.includes('ALL') ? '全部' : state.fleeces.join('、');
+        const seasonText = state.seasons.includes('ALL') ? '全部' : state.seasons.join('、');
+        const channelText = state.channelGroup.includes('ALL') ? '全部渠道' : state.channelGroup.join('、');
+
+        printContainer.innerHTML = `
+          <div style="border-bottom: 2px solid #3b82f6; padding-bottom: 8px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <h2 style="font-size: 16px; font-weight: 800; color: #1e293b; margin: 0;">滞销款销售跟进与渠道消化跟踪表 (横向A4)</h2>
+              <span style="font-size: 10px; color: #64748b;">生成日期: ${curDate} · 统计截止: ${getLatestSalesDate()}</span>
+            </div>
+            <div style="font-size: 9px; color: #475569; margin-top: 4px; line-height: 1.4;">
+              <strong>筛选条件：</strong> 品类: [${catText}] | 单/绒: [${fleeceText}] | 季节: [${seasonText}] | 渠道: [${channelText}] | 共计: <strong>${filtered.length}</strong> 款
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 8px; text-align: center; border: 1px solid #cbd5e1;">
+            <thead>
+              <tr style="background-color: #f1f5f9; color: #334155; font-weight: bold; border-bottom: 1px solid #cbd5e1;">
+                <th colspan="2" style="border: 1px solid #cbd5e1; padding: 4px;">商品信息</th>
+                <th colspan="7" style="border: 1px solid #cbd5e1; padding: 4px;">单品总销存数据</th>
+                <th colspan="${visibleChannels.length}" style="border: 1px solid #cbd5e1; padding: 4px; background-color: #e0e7ff; color: #1e1b4b;">各渠道销量与认领目标</th>
+              </tr>
+              <tr style="background-color: #f8fafc; font-weight: 600; border-bottom: 1px solid #cbd5e1;">
+                <th style="border: 1px solid #cbd5e1; padding: 3px; width: 66px;">货号</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px; width: 44px;">图片</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px;">近7天销</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px;">近30天销</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px; color: #1d4ed8;">9-2月销</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px;">在仓</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px;">在途</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px;">总库存</th>
+                <th style="border: 1px solid #cbd5e1; padding: 3px; color: #047857;">售罄率</th>
+                ${visibleChannels.map(c => `<th style="border: 1px solid #cbd5e1; padding: 3px; ${c==='总计'?'background-color:#e0e7ff;font-weight:bold;':''}">${c}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsWithImages.map((row, idx) => `
+                <tr style="background-color: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
+                  <td style="border: 1px solid #cbd5e1; padding: 3px; font-weight: bold; color: #2563eb;">${row.sku}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 2px; text-align: center;">
+                    <img src="${row.b64Img}" style="width: 28px; height: 28px; object-fit: cover; border-radius: 4px; display: inline-block; vertical-align: middle;">
+                  </td>
+                  <td style="border: 1px solid #cbd5e1; padding: 3px; color: #1d4ed8;">${row.sales7}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 3px; color: #b45309;">${row.sales30}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 3px; font-weight: bold;">${row.totalSales}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 3px;">${row.warehouseStock}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 3px;">${row.transitStock}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 3px; font-weight: bold;">${row.totalStock}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 3px; font-weight: bold; color: ${row.sellThrough < 0.25 ? '#b91c1c' : '#047857'};">${(row.sellThrough * 100).toFixed(1)}%</td>
+                  ${visibleChannels.map(ch => {
+                    const c = row.channels[ch] || { sales: 0, target: 0, hasTarget: false };
+                    const text = c.hasTarget && c.target > 0 ? `${c.sales}/${c.target}` : (c.sales > 0 ? `${c.sales}` : '-');
+                    return `<td style="border: 1px solid #cbd5e1; padding: 3px; ${ch==='总计'?'font-weight:bold;background-color:#e0e7ff;':''}">${text}</td>`;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+        document.body.appendChild(printContainer);
+
+        const opt = {
+          margin: [6, 6, 6, 6],
+          filename: `滞销款销售跟进表_带图片_横向A4_${curDate}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        await html2pdf().set(opt).from(printContainer).save();
+        document.body.removeChild(printContainer);
+        showToast('PDF 横向报表导出完成！');
+      } catch (err) {
+        console.error('PDF导出失败:', err);
+        showToast('PDF 导出异常，请重试');
+      } finally {
+        pdfBtn.disabled = false;
+        pdfBtnText.innerText = '导出为PDF(横向)';
       }
     }
 
@@ -1861,13 +2376,10 @@
     }
 
     function renderAll() {
-      state.category = document.getElementById('categoryFilter').value;
-      state.fleece = document.getElementById('fleeceFilter').value;
-      state.season = document.getElementById('seasonFilter').value;
-      state.searchSku = document.getElementById('skuSearchInput').value.trim();
+      state.searchSku = (document.getElementById('skuSearchInput')?.value || '').trim();
 
-      const fStartVal = document.getElementById('dateFilterStart').value;
-      const fEndVal = document.getElementById('dateFilterEnd').value;
+      const fStartVal = document.getElementById('dateFilterStart')?.value;
+      const fEndVal = document.getElementById('dateFilterEnd')?.value;
       if (fStartVal) state.filterStart = new Date(`${fStartVal}T00:00:00`);
       if (fEndVal) state.filterEnd = new Date(`${fEndVal}T23:59:59`);
 
@@ -1894,6 +2406,7 @@
       const map = {SELL_THROUGH_ASC:['sellThrough',true],SELL_THROUGH_DESC:['sellThrough',false],STOCK_DESC:['totalStock',false],SALES_7_DESC:['sales7',false],SALES_7_ASC:['sales7',true],SALES_30_DESC:['sales30',false],SALES_30_ASC:['sales30',true]};
       if (map[mode]) { state.sortCol=map[mode][0]; state.sortAsc=map[mode][1]; renderAll(); }
     }
+
     let skuWeeklyChartInstance = null;
     function renderSkuWeeklyTrend(sku) {
       const canvas = document.getElementById('skuWeeklyTrendChart'); if (!canvas) return;
@@ -1906,16 +2419,46 @@
       });
       if(skuWeeklyChartInstance) skuWeeklyChartInstance.destroy();
       const pointValueLabels = { id:'skuWeeklyPointValueLabels', afterDatasetsDraw(chart) {
-        const {ctx} = chart; ctx.save(); ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+        const {ctx} = chart; ctx.save(); ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
         chart.data.datasets.forEach((dataset, datasetIndex) => {
           const meta=chart.getDatasetMeta(datasetIndex);
           meta.data.forEach((point, index) => {
             const value=dataset.data[index]; if(value===null || value===undefined) return;
-            ctx.fillStyle='#334155'; ctx.fillText(Number(value).toLocaleString(), point.x, point.y-6);
+            ctx.fillStyle='#334155'; ctx.fillText(Number(value).toLocaleString(), point.x, point.y-5);
           });
         }); ctx.restore();
       }};
-      skuWeeklyChartInstance=new Chart(canvas.getContext('2d'),{type:'line',data:{labels,datasets:[{label:'周销量',data:values,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.10)',fill:true,tension:.25,pointRadius:3,pointHoverRadius:5}]},plugins:[pointValueLabels],options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:14}},plugins:{legend:{display:false},title:{display:true,text:`统计截止 ${latestStr}`},tooltip:{callbacks:{label:(context)=>`周销量：${Number(context.raw||0).toLocaleString()} 件`}}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{ticks:{maxRotation:45,minRotation:0}}}}});
+      skuWeeklyChartInstance=new Chart(canvas.getContext('2d'),{
+        type:'line',
+        data:{
+          labels,
+          datasets:[{
+            label:'周销量',
+            data:values,
+            borderColor:'#2563eb',
+            backgroundColor:'rgba(37,99,235,.08)',
+            fill:true,
+            tension:.25,
+            pointRadius:2.5,
+            pointHoverRadius:4.5
+          }]
+        },
+        plugins:[pointValueLabels],
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          layout:{padding:{top:12}},
+          plugins:{
+            legend:{display:false},
+            title:{display:false},
+            tooltip:{callbacks:{label:(context)=>`周销量：${Number(context.raw||0).toLocaleString()} 件`}}
+          },
+          scales:{
+            y:{beginAtZero:true,ticks:{precision:0,font:{size:10}}},
+            x:{ticks:{maxRotation:45,minRotation:0,font:{size:9}}}
+          }
+        }
+      });
     }
 
     function renderStoreWeekMatrix() {
@@ -1928,15 +2471,17 @@
       const weeks = generateWeeksSchedule();
       const selectedChannels = getSelectedChannels();
       const channelSet = new Set(selectedChannels);
-      const filteredItems = (state.items || []).filter(item => {
-        const categoryOk = state.category === 'ALL' || item.商品类目 === state.category;
-        const seasonOk = state.season === 'ALL' || item.季节 === state.season;
-        const fleeceVal = String(item['单/绒'] || '单里');
-        const fleeceNorm = fleeceVal.includes('绒') ? '绒里' : '单里';
-        const fleeceOk = state.fleece === 'ALL' || fleeceNorm === state.fleece;
-        return categoryOk && seasonOk && fleeceOk;
-      });
-      const filteredSkuSet = new Set(filteredItems.map(item => String(item.货号 || '').trim()).filter(Boolean));
+
+      // 同步当前复选框多选筛选
+      const filteredItems = getFilteredData(state.items.map(i => ({
+        ...i,
+        sku: i.货号,
+        category: i.商品类目,
+        season: i.季节,
+        fleece: i['单/绒']
+      })));
+
+      const filteredSkuSet = new Set(filteredItems.map(item => String(item.sku || '').trim()).filter(Boolean));
 
       const salesInScope = (state.salesLogs || []).filter(row => {
         const channel = String(row.渠道归类 || '').trim();

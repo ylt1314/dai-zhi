@@ -520,7 +520,7 @@
               每周销售 vs 周去库目标 (子弹图) & 周达成率走势
             </h3>
             <p class="text-xs text-slate-400 mt-0.5">
-              浅色宽背景柱：按总库存拆解周目标 | 内部深色细柱：实际完成销售 (达成标绿/未达成标蓝) | 折线：单周达成率 (实际周销/周目标)
+              浅色宽背景柱：按总库存拆解周目标 | 内部深色细柱：实际完成销售 (附销售件数数据标签) | 折线：单周达成率 (附百分比数据标签)
             </p>
           </div>
           <div class="flex items-center space-x-3 text-xs">
@@ -704,6 +704,17 @@
         { 货号: 'D260908', 图片链接: 'https://images.unsplash.com/photo-1575537302964-96cd47c06b1b?w=500&h=500&fit=crop', 商品类目: '加厚防滑雪地靴', '单/绒': '绒里', 季节: '2026冬' }
       ];
 
+      const skuBasePrice = {
+        'A260901': 199,
+        'A260902': 299,
+        'B260903': 239,
+        'B260904': 329,
+        'C260905': 159,
+        'C260906': 269,
+        'D260907': 219,
+        'D260908': 359
+      };
+
       const mockInventory = {
         'A260901': { 仓库: '华东一仓', 在仓库存: 850, 在途库存: 200, 总库存: 1050 },
         'A260902': { 仓库: '华南二仓', 在仓库存: 1420, 在途库存: 400, 总库存: 1820 },
@@ -747,11 +758,14 @@
             const chance = 0.22 * popularity;
             if (Math.random() < chance) {
               const qty = Math.floor(Math.random() * 4 * popularity) + 1;
+              const unitPrice = (skuBasePrice[sku] || 200) + Math.floor(Math.random() * 20 - 10);
+              const amount = qty * unitPrice;
               mockSalesLogs.push({
                 货号: sku,
                 店铺: `${ch}旗舰店`,
                 日期: dateStr,
                 销量: qty,
+                销额: amount,
                 渠道归类: ch
               });
             }
@@ -1375,11 +1389,10 @@
         document.getElementById('stockVelocityText').innerText = `近30天无动销`;
       }
 
-      // 渲染子弹图 (折线为单周达成率)
       renderWeeklyChart(labels, weeklyTargetsData, weeklyActualsData, weeklyRateData);
     }
 
-    // 子弹图 (Bullet Chart)：浅色宽柱展示目标基准，内部深色细柱展示实际销量，叠加单周达成率折线
+    // 子弹图 (Bullet Chart)：浅色宽柱展示目标基准，内部深色细柱展示实际销量，叠加单周达成率折线，并添加数据标签
     function renderWeeklyChart(labels, targets, actuals, weekRates) {
       const ctx = document.getElementById('weeklyChart').getContext('2d');
       if (weeklyChartInstance) weeklyChartInstance.destroy();
@@ -1389,6 +1402,47 @@
         const tgt = targets[i] || 0;
         return act >= tgt ? '#10b981' : '#2563eb';
       });
+
+      // 自定义数据标签插件：分别绘制实际销售件数与单周达成率百分比
+      const weeklyBulletLabelsPlugin = {
+        id: 'weeklyBulletLabels',
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          ctx.save();
+          
+          // 1. 实际销售 (件) 数据标签
+          const actualMeta = chart.getDatasetMeta(1);
+          if (actualMeta && actualMeta.data) {
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            actualMeta.data.forEach((bar, index) => {
+              const actVal = chart.data.datasets[1].data[index];
+              if (actVal !== null && actVal !== undefined && actVal > 0) {
+                ctx.fillStyle = actualColors[index] || '#1d4ed8';
+                ctx.fillText(Number(actVal).toLocaleString(), bar.x, bar.y - 2);
+              }
+            });
+          }
+
+          // 2. 单周达成率 (%) 数据标签
+          const lineMeta = chart.getDatasetMeta(0);
+          if (lineMeta && lineMeta.data) {
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            lineMeta.data.forEach((point, index) => {
+              const rateVal = chart.data.datasets[0].data[index];
+              if (rateVal !== null && rateVal !== undefined) {
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(`${rateVal}%`, point.x, point.y - 6);
+              }
+            });
+          }
+
+          ctx.restore();
+        }
+      };
 
       weeklyChartInstance = new Chart(ctx, {
         type: 'bar',
@@ -1433,13 +1487,16 @@
             }
           ]
         },
+        plugins: [weeklyBulletLabelsPlugin],
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 20 } },
           interaction: { mode: 'index', intersect: false },
           scales: {
             y: {
               beginAtZero: true,
+              grace: '6%',
               title: { display: true, text: '去库件数 (件)' },
               grid: { color: '#f1f5f9' },
               stacked: false
@@ -1447,6 +1504,7 @@
             yRate: {
               position: 'right',
               beginAtZero: true,
+              grace: '8%',
               title: { display: true, text: '周达成率 (%)' },
               grid: { display: false }
             },
@@ -1702,7 +1760,7 @@
     }
 
     /* -------------------------------------------------------------
-       核心改造：款模型详情弹窗（环比计算由百分比调整为绝对值增量）
+       核心改造：款模型详情弹窗（增量计算 + 近7天成交均价展示）
     ------------------------------------------------------------- */
     function showSkuDetail(sku) {
       currentDetailSku = sku;
@@ -1733,8 +1791,19 @@
 
       const modalChannelStats = ch => {
         const logs = (state.salesLogs || []).filter(x => String(x.货号 || '').trim() === String(sku).trim() && String(x.渠道归类 || '').trim() === ch && x.日期 && x.日期 <= modalLatest);
-        const sum = (a, b) => logs.filter(x => x.日期 >= a && x.日期 <= b).reduce((n, x) => n + (Number(x.销量) || 0), 0);
-        return { s7: sum(modalStart7, modalLatest), p7: sum(modalPrev7Start, modalPrev7End), s30: sum(modalStart30, modalLatest), p30: sum(modalPrev30Start, modalPrev30End) };
+        const sumQty = (a, b) => logs.filter(x => x.日期 >= a && x.日期 <= b).reduce((n, x) => n + (Number(x.销量) || 0), 0);
+        const sumAmount = (a, b) => logs.filter(x => x.日期 >= a && x.日期 <= b).reduce((n, x) => n + (Number(x.销额) || 0), 0);
+        const s7 = sumQty(modalStart7, modalLatest);
+        const a7 = sumAmount(modalStart7, modalLatest);
+        const avgPrice7 = s7 > 0 && a7 > 0 ? (a7 / s7) : (s7 > 0 && a7 === 0 ? 0 : null);
+        return { 
+          s7, 
+          a7,
+          avgPrice7,
+          p7: sumQty(modalPrev7Start, modalPrev7End), 
+          s30: sumQty(modalStart30, modalLatest), 
+          p30: sumQty(modalPrev30Start, modalPrev30End) 
+        };
       };
 
       // 计算销售周期时间进度与经过天数
@@ -1755,7 +1824,7 @@
         };
       }).filter(Boolean);
 
-      // 渠道明细排序（基于绝对增量差额进行比较）
+      // 渠道明细排序（支持近7天成交均价排序）
       channelRows.sort((a, b) => {
         let av, bv;
         const k = detailChannelSort.key;
@@ -1767,6 +1836,9 @@
         else if (k === 'r7') {
           av = a.stats.s7 - a.stats.p7;
           bv = b.stats.s7 - b.stats.p7;
+        } else if (k === 'avgPrice7') {
+          av = a.stats.avgPrice7 ?? -Infinity;
+          bv = b.stats.avgPrice7 ?? -Infinity;
         } else if (k === 's30') { av = a.stats.s30; bv = b.stats.s30; }
         else {
           av = a.stats.s30 - a.stats.p30;
@@ -1777,16 +1849,19 @@
       });
 
       // 计算明细汇总行数据
-      let sumTotSales = 0, sumTotTarget = 0, sumTotS7 = 0, sumTotP7 = 0, sumTotS30 = 0, sumTotP30 = 0;
+      let sumTotSales = 0, sumTotTarget = 0, sumTotS7 = 0, sumTotA7 = 0, sumTotP7 = 0, sumTotS30 = 0, sumTotP30 = 0;
       channelRows.forEach(r => {
         sumTotSales += Number(r.x.sales || 0);
         if (r.x.hasTarget && r.x.target > 0) sumTotTarget += Number(r.x.target || 0);
         sumTotS7 += Number(r.stats.s7 || 0);
+        sumTotA7 += Number(r.stats.a7 || 0);
         sumTotP7 += Number(r.stats.p7 || 0);
         sumTotS30 += Number(r.stats.s30 || 0);
         sumTotP30 += Number(r.stats.p30 || 0);
       });
       const totAchievePct = sumTotTarget > 0 ? (sumTotSales / sumTotTarget * 100) : null;
+      const totAvgP7 = sumTotS7 > 0 && sumTotA7 > 0 ? (sumTotA7 / sumTotS7) : null;
+      const totAvgP7Text = totAvgP7 !== null ? `¥${totAvgP7.toFixed(1)}` : '—';
 
       const s7Daily = (aggregated.sales7 || 0) / 7;
       const daysOfSupply = s7Daily > 0 ? Math.round(aggregated.totalStock / s7Daily) : null;
@@ -1893,7 +1968,7 @@
 
           </div>
 
-          <!-- 右翼：渠道认领目标与近期动销明细矩阵 (展示绝对值增量) -->
+          <!-- 右翼：渠道认领目标与近期动销明细矩阵 (展示绝对值增量与近7天成交均价) -->
           <div class="lg:col-span-7 space-y-2">
             <div class="flex items-center justify-between px-1">
               <h4 class="text-xs font-bold text-slate-800 flex items-center">
@@ -1913,12 +1988,15 @@
                     <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('pct')">达成率 ${detailChannelSort.key==='pct'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
                     <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s7')">近7天销 ${detailChannelSort.key==='s7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
                     <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r7')">7天增量 ${detailChannelSort.key==='r7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
+                    <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('avgPrice7')">近7天均价 ${detailChannelSort.key==='avgPrice7'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
                     <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('s30')">近30天销 ${detailChannelSort.key==='s30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
                     <th class="px-2 py-2 text-center"><button class="font-bold inline-flex items-center justify-center gap-0.5 w-full mx-auto" onclick="sortSkuChannelRows('r30')">30天增量 ${detailChannelSort.key==='r30'?(detailChannelSort.asc?'↑':'↓'):'↕'}</button></th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 font-medium">
-                  ${channelRows.map(({ch,x:chInfo,stats,pct})=>`
+                  ${channelRows.map(({ch,x:chInfo,stats,pct})=>{
+                    const avgP7Text = stats.avgPrice7 !== null ? `¥${stats.avgPrice7.toFixed(1)}` : '—';
+                    return `
                     <tr class="hover:bg-indigo-50/20 transition-colors">
                       <td class="px-2 py-2 text-center font-bold text-slate-800">${ch}</td>
                       <td class="px-2 py-2 text-center font-semibold text-slate-900">${modalFmt(chInfo.sales)}</td>
@@ -1926,10 +2004,12 @@
                       <td class="px-2 py-2 text-center">${pct===null?'—':`<span class="px-1.5 py-0.5 rounded font-bold ${pct>=100?'bg-emerald-100 text-emerald-800':(pct>=40?'bg-amber-100 text-amber-800':'bg-slate-100 text-slate-700')}">${pct.toFixed(1)}%</span>`}</td>
                       <td class="px-2 py-2 text-center font-bold text-blue-700">${modalFmt(stats.s7)}</td>
                       <td class="px-2 py-2 text-center ${modalRatioClass(stats.s7,stats.p7)}">${modalRatioText(stats.s7,stats.p7)}</td>
+                      <td class="px-2 py-2 text-center font-bold text-slate-800">${avgP7Text}</td>
                       <td class="px-2 py-2 text-center font-bold text-amber-700">${modalFmt(stats.s30)}</td>
                       <td class="px-2 py-2 text-center ${modalRatioClass(stats.s30,stats.p30)}">${modalRatioText(stats.s30,stats.p30)}</td>
                     </tr>
-                  `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400">当前筛选条件下暂无渠道目标或动销数据</td></tr>`}
+                    `;
+                  }).join('') || `<tr><td colspan="9" class="p-6 text-center text-slate-400">当前筛选条件下暂无渠道目标或动销数据</td></tr>`}
                 </tbody>
                 <!-- 汇总合计行 -->
                 <tfoot class="bg-slate-100/90 font-bold border-t-2 border-slate-300 text-slate-900">
@@ -1940,6 +2020,7 @@
                     <td class="px-2 py-2.5 text-center font-black text-indigo-700">${totAchievePct !== null ? totAchievePct.toFixed(1) + '%' : '—'}</td>
                     <td class="px-2 py-2.5 text-center font-black text-blue-700">${modalFmt(sumTotS7)}</td>
                     <td class="px-2 py-2.5 text-center ${modalRatioClass(sumTotS7, sumTotP7)}">${modalRatioText(sumTotS7, sumTotP7)}</td>
+                    <td class="px-2 py-2.5 text-center font-black text-slate-800">${totAvgP7Text}</td>
                     <td class="px-2 py-2.5 text-center font-black text-amber-700">${modalFmt(sumTotS30)}</td>
                     <td class="px-2 py-2.5 text-center ${modalRatioClass(sumTotS30, sumTotP30)}">${modalRatioText(sumTotS30, sumTotP30)}</td>
                   </tr>
@@ -1948,7 +2029,7 @@
             </div>
 
             <div class="flex flex-wrap items-center justify-between text-[10px] text-slate-400 px-1 pt-1 gap-2">
-              <span>* 增量计算：近N天销量 - 前一个周期N天销量。增加为带+号蓝色，减少为红色负数，持平显示0</span>
+              <span>* 增量计算：近N天销量 - 前一个周期N天销量。增加为带+号蓝色，减少为红色负数，持平显示0 | 近7天均价 = 近7天销额 / 近7天销量</span>
               <span>横向A4规格：297mm × 210mm (自适应排版)</span>
             </div>
           </div>
@@ -2331,11 +2412,14 @@
                 const dateObj = new Date((dStr - (25567 + 2)) * 86400 * 1000);
                 dStr = dateObj.toISOString().split('T')[0];
               }
+              const qty = Number(r['销量'] || r['销售数量'] || r['数量'] || 1);
+              const amount = Number(r['销额'] || r['销售额'] || r['金额'] || r['成交额'] || r['GMV'] || 0);
               return {
                 货号: String(r['货号'] || '').trim(),
                 店铺: r['店铺'] || '',
                 日期: String(dStr || '2026-09-01').trim(),
-                销量: Number(r['销量'] || 1),
+                销量: qty,
+                销额: amount,
                 渠道归类: String(r['渠道归类'] || r['渠道'] || '其他渠道').trim()
               };
             }).filter(r => r.货号);
